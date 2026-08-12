@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>maswer attend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --base:#212F4E; --shadow-dark:#131B30; --shadow-light:#2F4070;
+    --paper:#EDEFF5; --amber:#F05A22; --green:#3DDC84; --red:#FF6B6B; --concrete:#8B93A1;
+    --raised: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+    --pressed: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Inter',sans-serif; background:var(--base); color:var(--paper);
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .card{ width:100%; max-width:380px; background:var(--base); border-radius:28px; padding:36px 30px; box-shadow:var(--raised); text-align:center; }
+  .brand{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; margin-bottom:4px; }
+  .brand .plus{ color:var(--amber); }
+  .worker-name{ color:var(--concrete); font-size:13px; margin-bottom:28px; }
+  .status-circle{
+    width:140px; height:140px; border-radius:50%; margin:0 auto 22px; box-shadow:var(--pressed);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .status-circle .label{ font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; }
+  .status-circle .sub{ font-size:11px; color:var(--concrete); margin-top:4px; }
+  .status-circle.in .label{ color:var(--green); }
+  .status-circle.out .label{ color:var(--concrete); }
+  .status-circle.wait .label{ color:var(--amber); font-size:15px; }
+  .msg{ font-size:12.5px; color:var(--concrete); line-height:1.6; margin-top:10px; }
+  .msg b{ color:var(--paper); }
+  .error{ color:var(--red); font-size:12.5px; margin-top:14px; }
+  .pulse{ animation: pulse 2s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.5} }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand"><span class="plus">+</span> maswer attend</div>
+    <div class="worker-name" id="workerLabel">Loading…</div>
+    <div class="status-circle wait" id="statusCircle">
+      <div class="label pulse" id="statusLabel">Shuru ho raha hai…</div>
+      <div class="sub" id="statusSub"></div>
+    </div>
+    <div class="msg">Is page ko <b>khula rakhein</b>. Range ke andar aate hi <b>IN</b>, bahar jaate hi <b>OUT</b> apne aap lagega — kuch dabana nahi hai.</div>
+    <div class="error" id="errorMsg"></div>
+  </div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const token = params.get('token');
+const statusCircle = document.getElementById('statusCircle');
+const statusLabel = document.getElementById('statusLabel');
+const statusSub = document.getElementById('statusSub');
+const workerLabel = document.getElementById('workerLabel');
+const errorMsg = document.getElementById('errorMsg');
+
+if (!token) {
+  workerLabel.textContent = 'Token nahi mila';
+  errorMsg.textContent = 'Ye link galat hai. Admin se sahi link maangein.';
+} else {
+  init();
+}
+
+async function init() {
+  try {
+    const res = await fetch('/api/track/geofence/' + token);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Token invalid');
+    workerLabel.textContent = data.worker_name + ' (' + data.emp_id + ') — ' + data.project_name;
+    startTracking();
+  } catch (e) {
+    workerLabel.textContent = 'Setup nahi ho paaya';
+    errorMsg.textContent = e.message;
+  }
+}
+
+function startTracking() {
+  if (!navigator.geolocation) {
+    errorMsg.textContent = 'Ye browser location support nahi karta.';
+    return;
+  }
+  sendPing();
+  setInterval(sendPing, 30000); // every 30 seconds
+  navigator.geolocation.watchPosition(() => {}, () => {}, { enableHighAccuracy: true });
+}
+
+function sendPing() {
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    try {
+      const res = await fetch('/api/track/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_token: token,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      updateStatus(data);
+      errorMsg.textContent = '';
+    } catch (e) {
+      errorMsg.textContent = 'Update fail hua, dobara try ho raha hai…';
+    }
+  }, () => {
+    errorMsg.textContent = 'Location permission zaroori hai. Browser settings check karein.';
+  }, { enableHighAccuracy: true, timeout: 15000 });
+}
+
+function updateStatus(data) {
+  statusCircle.className = 'status-circle ' + (data.status === 'IN' ? 'in' : 'out');
+  statusLabel.className = 'label';
+  statusLabel.textContent = data.status;
+  statusSub.textContent = data.distance_meters + 'm door (range: ' + data.radius_meters + 'm)';
+}
+</script>
+</body>
+</html>

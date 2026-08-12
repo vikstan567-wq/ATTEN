@@ -497,9 +497,10 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <h2>Worker Ready ✓</h2>
       <button class="modal-close" data-close="tokenModal">&times;</button>
     </div>
-    <p class="token-help">Ye <b>Device Token</b> worker ke phone app me ek baar setup karna hoga. Uske baad worker ko kabhi kuch nahi karna — range me aate/jaate hi attendance khud lagegi.</p>
+    <p class="token-help">Ye <b>link</b> worker ko bhej do (WhatsApp se bhi). Worker sirf <b>ek baar khole</b> aur location permission de — uske baad kabhi kuch nahi karna, range me aate/jaate hi attendance khud lagegi.</p>
     <div class="token-box" id="tokenValue"></div>
-    <button class="btn-primary full" id="copyTokenBtn">Token Copy Karein</button>
+    <button class="btn-primary full" id="copyTokenBtn">Link Copy Karein</button>
+    <button class="btn-ghost full" id="shareTokenBtn" style="margin-top:10px; width:100%;">WhatsApp par bhejein</button>
   </div>
 </div>
 
@@ -908,13 +909,19 @@ async function deleteWorker(id) {
 }
 
 function showToken(token) {
-  document.getElementById('tokenValue').textContent = token;
+  const link = location.origin + '/worker.html?token=' + token;
+  document.getElementById('tokenValue').textContent = link;
   document.getElementById('tokenModal').classList.add('show');
 }
 document.getElementById('copyTokenBtn').addEventListener('click', () => {
   navigator.clipboard.writeText(document.getElementById('tokenValue').textContent);
   document.getElementById('copyTokenBtn').textContent = 'Copied ✓';
-  setTimeout(() => document.getElementById('copyTokenBtn').textContent = 'Token Copy Karein', 1500);
+  setTimeout(() => document.getElementById('copyTokenBtn').textContent = 'Link Copy Karein', 1500);
+});
+document.getElementById('shareTokenBtn').addEventListener('click', () => {
+  const link = document.getElementById('tokenValue').textContent;
+  const msg = encodeURIComponent('Attendance ke liye ye link ek baar kholein aur location permission de dein: ' + link);
+  window.open('https://wa.me/?text=' + msg, '_blank');
 });
 
 // ---------- LOGS ----------
