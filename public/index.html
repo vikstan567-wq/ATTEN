@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>maswer attend — Geofence Admin</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --base: #212F4E;
+  --shadow-dark: #131B30;
+  --shadow-light: #2F4070;
+  --paper: #EDEFF5;
+  --amber: #F05A22;
+  --amber-dim: #7A2E11;
+  --concrete: #8B93A1;
+  --green: #3DDC84;
+  --red: #FF6B6B;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --raised: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+  --raised-sm: 4px 4px 8px var(--shadow-dark), -4px -4px 8px var(--shadow-light);
+  --pressed: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light);
+  --pressed-sm: inset 3px 3px 6px var(--shadow-dark), inset -3px -3px 6px var(--shadow-light);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+button, input, select{ outline:none; }
+button:focus-visible, input:focus-visible, select:focus-visible{
+  box-shadow: var(--pressed-sm), 0 0 0 2px var(--amber-dim);
+}
+body{
+  font-family: var(--font-body);
+  background: var(--base);
+  color: var(--paper);
+  min-height:100vh;
+}
+input, select, button{ font-family: var(--font-body); }
+
+/* ---------- Brand ---------- */
+.brand{ display:flex; align-items:center; gap:10px; }
+.brand-mark{
+  display:flex; align-items:center; justify-content:center;
+  color:var(--amber); font-size:20px; font-weight:700;
+  width:20px; height:20px; line-height:1;
+}
+.brand-name{
+  font-family: var(--font-display); font-weight:700; letter-spacing:0.5px; font-size:17px;
+  color:var(--paper);
+}
+.brand-pill{
+  background:var(--base); color:var(--amber); font-family:var(--font-body); font-weight:600;
+  font-size:12px; padding:4px 13px; border-radius:14px; letter-spacing:0.3px;
+  box-shadow: var(--pressed-sm);
+}
+
+/* ---------- Auth ---------- */
+.auth-screen{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background: var(--base);
+}
+.auth-card{
+  width:380px; background:var(--base); border-radius:28px; padding:40px 34px;
+  box-shadow: var(--raised);
+}
+.auth-card .brand{ margin-bottom:6px; }
+.auth-sub{ color:var(--concrete); font-size:13px; margin:8px 0 26px; }
+.auth-form{ display:flex; flex-direction:column; gap:6px; }
+.auth-form label{ font-size:12px; color:var(--concrete); margin-top:12px; text-transform:uppercase; letter-spacing:1px; }
+.auth-form input{
+  background:var(--base); border:none; color:var(--paper);
+  padding:12px 16px; border-radius:14px; font-size:14px; outline:none;
+  box-shadow: var(--pressed);
+}
+.auth-form input:focus{ box-shadow: var(--pressed), 0 0 0 2px var(--amber-dim); }
+.auth-error{ color:var(--red); font-size:12px; min-height:16px; }
+
+/* ---------- Buttons ---------- */
+.btn-primary{
+  background:var(--base); color:var(--amber); border:none; padding:13px 20px;
+  border-radius:16px; font-weight:600; font-size:14px; cursor:pointer; margin-top:18px;
+  box-shadow: var(--raised-sm);
+  transition: box-shadow .12s ease, transform .1s ease;
+}
+.btn-primary:hover{ color:#FF7A45; }
+.btn-primary:active{ box-shadow: var(--pressed-sm); transform: scale(.99); }
+.btn-primary.full{ width:100%; }
+.btn-ghost{
+  background:var(--base); border:none; color:var(--concrete);
+  padding:9px 16px; border-radius:14px; cursor:pointer; font-size:13px;
+  box-shadow: var(--raised-sm);
+}
+.btn-ghost:hover{ color:var(--amber); }
+.btn-ghost:active{ box-shadow: var(--pressed-sm); }
+
+/* ---------- App shell ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 28px; background:var(--base);
+  box-shadow: 0 6px 16px var(--shadow-dark);
+}
+.tabs{ display:flex; gap:10px; }
+.tab{
+  background:var(--base); border:none; color:var(--concrete); padding:9px 18px;
+  font-size:13px; font-weight:500; cursor:pointer; border-radius:14px; letter-spacing:.3px;
+  box-shadow: var(--raised-sm);
+}
+.tab:hover{ color:var(--paper); }
+.tab.active{ color:var(--amber); box-shadow: var(--pressed-sm); }
+
+.content{ padding:28px; max-width:1200px; margin:0 auto; }
+.panel{ display:none; }
+.panel.active{ display:block; }
+
+.panel-head{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;
+}
+.panel-head h1{ font-family:var(--font-display); font-size:22px; font-weight:700; }
+.filter-row{ display:flex; gap:10px; }
+
+select, input[type=date]{
+  background:var(--base); border:none; color:var(--paper);
+  padding:9px 14px; border-radius:12px; font-size:13px;
+  box-shadow: var(--pressed-sm);
+}
+
+/* ---------- Stat row ---------- */
+.stat-row{ display:flex; gap:20px; margin-bottom:26px; }
+.stat-card{
+  flex:1; background:var(--base); border-radius:20px;
+  padding:20px 22px; position:relative; overflow:hidden;
+  box-shadow: var(--raised);
+}
+.stat-card .num{ font-family:var(--font-mono); font-size:30px; font-weight:500; }
+.stat-card .label{ color:var(--concrete); font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+.stat-card.in .num{ color:var(--green); }
+.stat-card.out .num{ color:var(--concrete); }
+
+/* ---------- Tables ---------- */
+.table-wrap{ background:var(--base); border-radius:20px; overflow:hidden; box-shadow: var(--raised); }
+table{ width:100%; border-collapse:collapse; }
+th{
+  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px;
+  color:var(--concrete); padding:14px 18px;
+  font-weight:500;
+}
+td{ padding:13px 18px; font-size:13px; font-family:var(--font-mono); }
+td.name-cell{ font-family:var(--font-body); }
+tr:hover td{ background:rgba(255,255,255,0.02); }
+
+.status-pill{
+  display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
+  font-family:var(--font-body); box-shadow: var(--pressed-sm);
+}
+.status-pill.IN{ color:var(--green); }
+.status-pill.OUT{ color:var(--concrete); }
+.status-pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.status-pill.IN::before{ box-shadow:0 0 6px var(--green); }
+
+.link-btn{ background:none; border:none; color:var(--amber); cursor:pointer; font-size:12px; text-decoration:underline; }
+.danger-btn{ background:none; border:none; color:var(--red); cursor:pointer; font-size:12px; margin-left:10px; }
+
+/* ---------- Project cards ---------- */
+.card-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:20px; }
+.proj-card{
+  background:var(--base); border-radius:20px; padding:20px;
+  cursor:pointer; transition: box-shadow .15s;
+  box-shadow: var(--raised);
+}
+.proj-card:hover{ box-shadow: var(--raised-sm); }
+.proj-code{ font-family:var(--font-mono); color:var(--amber); font-size:11px; letter-spacing:1px; }
+.proj-name{ font-family:var(--font-display); font-size:16px; font-weight:700; margin:6px 0 14px; }
+.proj-meta{ display:flex; justify-content:space-between; font-size:12px; color:var(--concrete); padding-top:12px; }
+.proj-meta b{ color:var(--paper); }
+.proj-radius-badge{
+  display:inline-block; margin-top:8px; font-family:var(--font-mono); font-size:11px;
+  color:var(--concrete); border-radius:20px; padding:3px 12px;
+  box-shadow: var(--pressed-sm);
+}
+
+/* ---------- Modal ---------- */
+.modal-overlay{
+  display:none; position:fixed; inset:0; background:rgba(10,14,26,0.65);
+  align-items:center; justify-content:center; z-index:100; padding:20px;
+}
+.modal-overlay.show{ display:flex; }
+.modal{
+  width:420px; max-height:90vh; overflow-y:auto; background:var(--base);
+  border-radius:26px; padding:26px; box-shadow: var(--raised);
+}
+.modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.modal-head h2{ font-family:var(--font-display); font-size:17px; }
+.modal-close{ background:none; border:none; color:var(--concrete); font-size:22px; cursor:pointer; line-height:1; }
+.modal form label{ display:block; font-size:12px; color:var(--concrete); text-transform:uppercase; letter-spacing:1px; margin-top:12px; }
+.modal form input, .modal form select{
+  width:100%; margin-top:6px; padding:11px 14px; background:var(--base); border:none;
+  color:var(--paper); border-radius:14px; box-shadow: var(--pressed);
+}
+.form-error{ color:var(--red); font-size:12px; min-height:16px; margin-top:8px; }
+
+.map-box{ height:220px; border-radius:16px; margin-top:8px; box-shadow: var(--pressed-sm); overflow:hidden; }
+.coord-row{ display:flex; gap:10px; }
+.coord-row > div{ flex:1; }
+
+.token-help{ font-size:13px; color:var(--concrete); line-height:1.5; margin-bottom:14px; }
+.token-box{
+  font-family:var(--font-mono); background:var(--base); border:none;
+  color:var(--amber); padding:16px; border-radius:16px; word-break:break-all; font-size:13px;
+  box-shadow: var(--pressed);
+}
+
+/* ---------- New: info box (location instructions) ---------- */
+.info-box{
+  background:var(--base); border-radius:14px; padding:14px 16px; font-size:12.5px;
+  color:var(--concrete); line-height:1.6; box-shadow: var(--pressed-sm);
+}
+.info-box b{ color:var(--paper); }
+
+/* ---------- New: locate button ---------- */
+.location-btn-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; }
+.btn-locate{
+  background:var(--base); color:var(--amber); border:none; padding:8px 14px;
+  border-radius:12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;
+  box-shadow: var(--raised-sm);
+}
+.btn-locate:active{ box-shadow: var(--pressed-sm); }
+
+/* ---------- New: export button ---------- */
+.btn-export{
+  background:var(--base); color:var(--green); border:none; padding:9px 16px;
+  border-radius:12px; font-size:13px; font-weight:600; cursor:pointer;
+  box-shadow: var(--raised-sm);
+}
+.btn-export:active{ box-shadow: var(--pressed-sm); }
+
+/* ---------- New: date badge ---------- */
+.date-badge{ font-size:12px; color:var(--concrete); align-self:center; }
+
+/* ---------- New: Monthly report layout ---------- */
+.report-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:22px; }
+.report-box{
+  background:var(--base); border-radius:20px; padding:20px; box-shadow: var(--raised);
+}
+.report-box h3{ font-family:var(--font-display); font-size:14px; margin-bottom:16px; color:var(--paper); }
+.pie-row{ display:flex; align-items:center; gap:20px; }
+.pie-legend{ display:flex; flex-direction:column; gap:10px; font-size:13px; }
+.pie-legend .legend-item{ display:flex; align-items:center; gap:8px; }
+.pie-legend .dot{ width:10px; height:10px; border-radius:50%; }
+.pie-legend b{ font-family:var(--font-mono); margin-left:auto; }
+
+.bar-chart{ display:flex; align-items:flex-end; gap:8px; height:140px; padding-top:20px; }
+.bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+.bar-col .bar-num{ font-size:10px; color:var(--concrete); margin-bottom:4px; font-family:var(--font-mono); }
+.bar-col .bar{ width:100%; background:var(--amber); border-radius:6px 6px 0 0; min-height:3px; box-shadow: var(--raised-sm); }
+.bar-col .bar-label{ font-size:9px; color:var(--concrete); margin-top:6px; }
+
+/* ---------- New: history panel ---------- */
+.history-toolbar{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px 0; }
+.history-title{ font-weight:600; font-size:14px; }
+.history-filters{ display:flex; gap:10px; padding:16px 18px; }
+.history-filters input{
+  background:var(--base); border:none; color:var(--paper); padding:10px 14px;
+  border-radius:12px; font-size:13px; box-shadow: var(--pressed-sm); flex:1;
+}
+
+@media (max-width: 720px){
+  .topbar{ flex-direction:column; gap:10px; }
+  .content{ padding:16px; }
+  .stat-row{ flex-direction:column; }
+  .report-grid{ grid-template-columns:1fr; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="brand">
+      <span class="brand-mark">+</span>
+      <span class="brand-name">maswer</span>
+      <span class="brand-pill">attend</span>
+    </div>
+    <p class="auth-sub" id="authSubtitle">Admin panel me login karein</p>
+
+    <form id="loginForm" class="auth-form">
+      <label>Username</label>
+      <input type="text" id="loginUsername" required autocomplete="username">
+      <label>Password</label>
+      <input type="password" id="loginPassword" required autocomplete="current-password">
+      <div class="auth-error" id="loginError"></div>
+      <button type="submit" class="btn-primary">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app" class="app" style="display:none">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">+</span>
+      <span class="brand-name">maswer</span>
+      <span class="brand-pill">attend</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="monthly">Monthly Report</button>
+      <button class="tab" data-tab="history">Full History</button>
+      <button class="tab" data-tab="projects">Projects</button>
+      <button class="tab" data-tab="workers">Employees</button>
+      <button class="tab" data-tab="logs">Logs</button>
+    </nav>
+    <button id="logoutBtn" class="btn-ghost">Logout</button>
+  </header>
+
+  <main class="content">
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="panel active">
+      <div class="panel-head">
+        <h1>Aaj ki Attendance</h1>
+        <div class="filter-row">
+          <span class="date-badge" id="todayDateBadge"></span>
+          <select id="dashProjectFilter"><option value="">Saare Projects</option></select>
+        </div>
+      </div>
+      <div class="stat-row" id="statRow"></div>
+      <div class="table-wrap">
+        <table id="liveTable">
+          <thead><tr><th>Emp ID</th><th>Naam</th><th>Project</th><th>Status</th><th>Last Ping</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MONTHLY REPORT -->
+    <section id="tab-monthly" class="panel">
+      <div class="panel-head">
+        <h1>📅 Monthly Report</h1>
+        <div class="filter-row">
+          <select id="monthlyMonth"></select>
+          <select id="monthlyYear"></select>
+          <select id="monthlyProjectFilter"><option value="">Saare Projects</option></select>
+          <button class="btn-export" id="monthlyExportBtn">⬇ Excel</button>
+        </div>
+      </div>
+      <div class="report-grid">
+        <div class="report-box">
+          <h3>Is mahine ka breakdown</h3>
+          <div class="pie-row">
+            <svg id="pieChart" viewBox="0 0 120 120" width="120" height="120"></svg>
+            <div class="pie-legend" id="pieLegend"></div>
+          </div>
+        </div>
+        <div class="report-box">
+          <h3>Daily trend</h3>
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="monthlyTable">
+          <thead><tr><th>Employee</th><th>Emp ID</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Kaam</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FULL HISTORY -->
+    <section id="tab-history" class="panel">
+      <div class="panel-head">
+        <h1>Full History</h1>
+      </div>
+      <div class="table-wrap">
+        <div class="history-toolbar">
+          <span class="history-title">Poori History</span>
+          <button class="btn-export" id="historyExportBtn">⬇ Full Excel</button>
+        </div>
+        <div class="history-filters">
+          <input type="text" id="historySearch" placeholder="Name ya EMP ID...">
+          <input type="date" id="historyDate">
+        </div>
+        <table id="historyTable">
+          <thead><tr><th>Employee</th><th>Emp ID</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Kaam</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PROJECTS -->
+    <section id="tab-projects" class="panel">
+      <div class="panel-head">
+        <h1>Projects</h1>
+        <button class="btn-primary" id="newProjectBtn">+ Naya Project</button>
+      </div>
+      <div class="card-grid" id="projectGrid"></div>
+    </section>
+
+    <!-- WORKERS -->
+    <section id="tab-workers" class="panel">
+      <div class="panel-head">
+        <h1>Workers</h1>
+        <button class="btn-primary" id="newWorkerBtn">+ Naya Worker</button>
+      </div>
+      <div class="table-wrap">
+        <table id="workerTable">
+          <thead><tr><th>Emp ID</th><th>Naam</th><th>Phone</th><th>Project</th><th>Status</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- LOGS -->
+    <section id="tab-logs" class="panel">
+      <div class="panel-head">
+        <h1>Attendance Logs</h1>
+        <div class="filter-row">
+          <select id="logProjectFilter"><option value="">Saare Projects</option></select>
+          <input type="date" id="logDateFilter">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="logTable">
+          <thead><tr><th>Time</th><th>Emp ID</th><th>Naam</th><th>Project</th><th>Event</th><th>Distance</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===== PROJECT MODAL ===== -->
+<div id="projectModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="projectModalTitle">Naya Project</h2>
+      <button class="modal-close" data-close="projectModal">&times;</button>
+    </div>
+    <form id="projectForm">
+      <input type="hidden" id="projectId">
+      <div class="info-box">
+        <b>Kaise kaam karta hai:</b><br>
+        Site pe jaao → "Meri Location use karo" dabao → Save karo.<br>
+        Ab sirf range ke andar se hi attendance lagegi!
+      </div>
+      <label>Project Code (jaise PRJ-101)</label>
+      <input type="text" id="projectCode" required>
+      <label>Project Naam</label>
+      <input type="text" id="projectName" required>
+      <div class="location-btn-row">
+        <label style="margin-top:0">Map par site location click karein</label>
+        <button type="button" class="btn-locate" id="useMyLocationBtn">📍 Meri Location use karo</button>
+      </div>
+      <div id="projectMap" class="map-box"></div>
+      <div class="coord-row">
+        <div><label>Latitude</label><input type="number" step="any" id="projectLat" required></div>
+        <div><label>Longitude</label><input type="number" step="any" id="projectLng" required></div>
+      </div>
+      <label>Range / Radius (meters)</label>
+      <input type="number" id="projectRadius" value="500" min="10" required>
+      <div class="form-error" id="projectError"></div>
+      <button type="submit" class="btn-primary full">Save Project</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== WORKER MODAL ===== -->
+<div id="workerModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Naya Worker</h2>
+      <button class="modal-close" data-close="workerModal">&times;</button>
+    </div>
+    <form id="workerForm">
+      <label>Employee ID</label>
+      <input type="text" id="workerEmpId" required>
+      <label>Naam</label>
+      <input type="text" id="workerName" required>
+      <label>Phone (optional)</label>
+      <input type="text" id="workerPhone">
+      <label>Project Assign karein</label>
+      <select id="workerProject" required></select>
+      <div class="form-error" id="workerError"></div>
+      <button type="submit" class="btn-primary full">Worker Add karein</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== DEVICE TOKEN RESULT MODAL ===== -->
+<div id="tokenModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Worker Ready ✓</h2>
+      <button class="modal-close" data-close="tokenModal">&times;</button>
+    </div>
+    <p class="token-help">Ye <b>Device Token</b> worker ke phone app me ek baar setup karna hoga. Uske baad worker ko kabhi kuch nahi karna — range me aate/jaate hi attendance khud lagegi.</p>
+    <div class="token-box" id="tokenValue"></div>
+    <button class="btn-primary full" id="copyTokenBtn">Token Copy Karein</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = '/api';
+let TOKEN = localStorage.getItem('admin_token') || '';
+let projectMap, projectMarker, projectCircle;
+
+// ---------- fetch helper ----------
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {}),
+      ...(opts.headers || {})
+    }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+
+// ---------- boot ----------
+if (TOKEN) showApp();
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  try {
+    const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    TOKEN = data.token;
+    localStorage.setItem('admin_token', TOKEN);
+    showApp();
+  } catch (err) {
+    document.getElementById('loginError').textContent = err.message;
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('admin_token');
+  location.reload();
+});
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('todayDateBadge').textContent = new Date().toLocaleDateString('hi-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  loadDashboard();
+  loadProjects();
+  loadWorkers();
+}
+
+// ---------- tabs ----------
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'logs') loadLogs();
+    if (btn.dataset.tab === 'dashboard') loadDashboard();
+    if (btn.dataset.tab === 'monthly') loadMonthly();
+    if (btn.dataset.tab === 'history') loadHistory();
+  });
+});
+
+// ---------- DASHBOARD ----------
+async function loadDashboard() {
+  const projectId = document.getElementById('dashProjectFilter').value;
+  const qs = projectId ? `?project_id=${projectId}` : '';
+  const [summary, rows] = await Promise.all([
+    api('/attendance/daily-summary' + qs),
+    api('/attendance/live' + qs)
+  ]);
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat-card in"><div class="num">${summary.present}</div><div class="label">Present</div></div>
+    <div class="stat-card out"><div class="num" style="color:var(--red)">${summary.absent}</div><div class="label">Absent</div></div>
+    <div class="stat-card"><div class="num" style="color:var(--amber)">${summary.late}</div><div class="label">Late</div></div>
+    <div class="stat-card"><div class="num">${summary.total}</div><div class="label">Total</div></div>
+  `;
+  const tbody = document.querySelector('#liveTable tbody');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.emp_id}</td>
+      <td class="name-cell">${r.name}</td>
+      <td>${r.project_code}</td>
+      <td><span class="status-pill ${r.current_status}">${r.current_status}</span></td>
+      <td>${r.last_ping_at ? timeAgo(r.last_ping_at) : '—'}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--concrete)">Koi worker nahi mila</td></tr>`;
+}
+document.getElementById('dashProjectFilter').addEventListener('change', loadDashboard);
+setInterval(() => { if (document.getElementById('tab-dashboard').classList.contains('active')) loadDashboard(); }, 15000);
+
+function timeAgo(iso) {
+  const diff = (Date.now() - new Date(iso + 'Z').getTime()) / 1000;
+  if (diff < 60) return Math.floor(diff) + 's pehle';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm pehle';
+  return Math.floor(diff / 3600) + 'h pehle';
+}
+
+// ---------- MONTHLY REPORT ----------
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+(function populateMonthYear() {
+  const now = new Date();
+  const monthSel = document.getElementById('monthlyMonth');
+  monthSel.innerHTML = MONTH_NAMES.map((m, i) => `<option value="${i+1}">${m}</option>`).join('');
+  monthSel.value = now.getMonth() + 1;
+  const yearSel = document.getElementById('monthlyYear');
+  const thisYear = now.getFullYear();
+  yearSel.innerHTML = [thisYear, thisYear - 1].map(y => `<option value="${y}">${y}</option>`).join('');
+})();
+
+async function loadMonthly() {
+  const month = document.getElementById('monthlyMonth').value;
+  const year = document.getElementById('monthlyYear').value;
+  const projectId = document.getElementById('monthlyProjectFilter').value;
+  const params = new URLSearchParams({ month, year });
+  if (projectId) params.set('project_id', projectId);
+  const data = await api('/attendance/monthly?' + params.toString());
+
+  // Pie chart
+  const { present, late, absent } = data.summary;
+  const total = present + late + absent || 1;
+  drawPieChart([
+    { label: 'Present', value: present, color: 'var(--green)' },
+    { label: 'Late', value: late, color: 'var(--amber)' },
+    { label: 'Absent', value: absent, color: 'var(--red)' }
+  ]);
+  document.getElementById('pieLegend').innerHTML = [
+    { label: 'Present', value: present, color: 'var(--green)' },
+    { label: 'Late', value: late, color: 'var(--amber)' },
+    { label: 'Absent', value: absent, color: 'var(--red)' }
+  ].map(s => `<div class="legend-item"><span class="dot" style="background:${s.color}"></span>${s.label}: <b>${s.value}</b></div>`).join('');
+
+  // Bar chart
+  const maxCount = Math.max(1, ...data.daily_trend.map(d => d.count));
+  document.getElementById('barChart').innerHTML = data.daily_trend.map(d => {
+    const day = new Date(d.date + 'T00:00:00Z');
+    const label = ['Su','Mo','Tu','We','Th','Fr','Sa'][day.getUTCDay()] + day.getUTCDate();
+    const heightPct = Math.max(4, (d.count / maxCount) * 100);
+    return `<div class="bar-col"><div class="bar-num">${d.count}</div><div class="bar" style="height:${heightPct}%"></div><div class="bar-label">${label}</div></div>`;
+  }).join('');
+
+  // Table
+  document.querySelector('#monthlyTable tbody').innerHTML = data.records.map(r => `
+    <tr>
+      <td class="name-cell">${r.name}</td>
+      <td>${r.emp_id}</td>
+      <td>${r.date}</td>
+      <td>${r.check_in ? r.check_in.slice(11,16) : '—'}</td>
+      <td>${r.check_out ? r.check_out.slice(11,16) : 'Abhi IN'}</td>
+      <td>${r.hours}h</td>
+      <td><span class="status-pill ${r.status === 'Absent' ? 'OUT' : 'IN'}">${r.status}</span></td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--concrete)">Koi record nahi mila</td></tr>`;
+}
+document.getElementById('monthlyMonth').addEventListener('change', loadMonthly);
+document.getElementById('monthlyYear').addEventListener('change', loadMonthly);
+document.getElementById('monthlyProjectFilter').addEventListener('change', loadMonthly);
+document.getElementById('monthlyExportBtn').addEventListener('click', () => {
+  const month = document.getElementById('monthlyMonth').value;
+  const year = document.getElementById('monthlyYear').value;
+  const projectId = document.getElementById('monthlyProjectFilter').value;
+  const params = new URLSearchParams({ scope: 'month', month, year });
+  if (projectId) params.set('project_id', projectId);
+  downloadExport(params);
+});
+
+function drawPieChart(segments) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  let angle = -90;
+  const cx = 60, cy = 60, r = 50;
+  let paths = '';
+  segments.forEach(seg => {
+    const portion = seg.value / total;
+    const endAngle = angle + portion * 360;
+    if (portion > 0) {
+      const large = portion > 0.5 ? 1 : 0;
+      const x1 = cx + r * Math.cos(angle * Math.PI / 180);
+      const y1 = cy + r * Math.sin(angle * Math.PI / 180);
+      const x2 = cx + r * Math.cos(endAngle * Math.PI / 180);
+      const y2 = cy + r * Math.sin(endAngle * Math.PI / 180);
+      paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" style="fill:${seg.color}"></path>`;
+    }
+    angle = endAngle;
+  });
+  document.getElementById('pieChart').innerHTML = total > 0 ? paths : `<circle cx="60" cy="60" r="50" fill="var(--concrete)" opacity="0.15"></circle>`;
+}
+
+// ---------- FULL HISTORY ----------
+let historyDebounce;
+async function loadHistory() {
+  const search = document.getElementById('historySearch').value;
+  const date = document.getElementById('historyDate').value;
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (date) params.set('date', date);
+  const rows = await api('/attendance/history?' + params.toString());
+  document.querySelector('#historyTable tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td class="name-cell">${r.name}</td>
+      <td>${r.emp_id}</td>
+      <td>${r.date}</td>
+      <td>${r.check_in ? r.check_in.slice(11,16) : '—'}</td>
+      <td>${r.check_out ? r.check_out.slice(11,16) : 'Abhi IN'}</td>
+      <td>${r.hours}h</td>
+      <td><span class="status-pill ${r.status === 'Absent' ? 'OUT' : 'IN'}">${r.status}</span></td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--concrete)">Koi record nahi mila</td></tr>`;
+}
+document.getElementById('historySearch').addEventListener('input', () => {
+  clearTimeout(historyDebounce);
+  historyDebounce = setTimeout(loadHistory, 300);
+});
+document.getElementById('historyDate').addEventListener('change', loadHistory);
+document.getElementById('historyExportBtn').addEventListener('click', () => {
+  const search = document.getElementById('historySearch').value;
+  const date = document.getElementById('historyDate').value;
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (date) params.set('date', date);
+  downloadExport(params);
+});
+
+function downloadExport(params) {
+  const url = API + '/attendance/export?' + params.toString();
+  fetch(url, { headers: { Authorization: 'Bearer ' + TOKEN } })
+    .then(res => res.blob())
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'attendance-export.csv';
+      a.click();
+    });
+}
+
+// ---------- PROJECTS ----------
+let allProjects = [];
+async function loadProjects() {
+  allProjects = await api('/projects');
+  document.getElementById('projectGrid').innerHTML = allProjects.map(p => `
+    <div class="proj-card" onclick="openProjectModal(${p.id})">
+      <div class="proj-code">${p.project_code}</div>
+      <div class="proj-name">${p.project_name}</div>
+      <div class="proj-radius-badge">◎ ${p.radius_meters}m range</div>
+      <div class="proj-meta">
+        <span>Workers: <b>${p.worker_count}</b></span>
+        <span>Present: <b>${p.present_count}</b></span>
+      </div>
+    </div>
+  `).join('') || `<p style="color:var(--concrete)">Abhi koi project nahi hai. "+ Naya Project" par click karein.</p>`;
+
+  // populate filters/selects
+  const opts = allProjects.map(p => `<option value="${p.id}">${p.project_code} — ${p.project_name}</option>`).join('');
+  document.getElementById('dashProjectFilter').innerHTML = '<option value="">Saare Projects</option>' + opts;
+  document.getElementById('logProjectFilter').innerHTML = '<option value="">Saare Projects</option>' + opts;
+  document.getElementById('monthlyProjectFilter').innerHTML = '<option value="">Saare Projects</option>' + opts;
+  document.getElementById('workerProject').innerHTML = opts;
+}
+
+document.getElementById('newProjectBtn').addEventListener('click', () => openProjectModal(null));
+
+function openProjectModal(id) {
+  const project = allProjects.find(p => p.id === id);
+  document.getElementById('projectModalTitle').textContent = project ? 'Project Edit karein' : 'Naya Project';
+  document.getElementById('projectId').value = id || '';
+  document.getElementById('projectCode').value = project ? project.project_code : '';
+  document.getElementById('projectCode').disabled = !!project;
+  document.getElementById('projectName').value = project ? project.project_name : '';
+  document.getElementById('projectRadius').value = project ? project.radius_meters : 500;
+  const lat = project ? project.latitude : 23.0225;
+  const lng = project ? project.longitude : 72.5714; // default: Ahmedabad
+  document.getElementById('projectLat').value = lat;
+  document.getElementById('projectLng').value = lng;
+  document.getElementById('projectError').textContent = '';
+
+  document.getElementById('projectModal').classList.add('show');
+  setTimeout(() => initProjectMap(lat, lng, document.getElementById('projectRadius').value), 50);
+}
+
+function initProjectMap(lat, lng, radius) {
+  if (projectMap) { projectMap.remove(); projectMap = null; }
+  projectMap = L.map('projectMap').setView([lat, lng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(projectMap);
+
+  projectMarker = L.marker([lat, lng], { draggable: true }).addTo(projectMap);
+  projectCircle = L.circle([lat, lng], { radius: Number(radius) || 500, color: '#F05A22', fillOpacity: 0.12 }).addTo(projectMap);
+
+  projectMap.on('click', (e) => updateProjectPos(e.latlng));
+  projectMarker.on('dragend', () => updateProjectPos(projectMarker.getLatLng()));
+}
+
+function updateProjectPos(latlng) {
+  projectMarker.setLatLng(latlng);
+  projectCircle.setLatLng(latlng);
+  document.getElementById('projectLat').value = latlng.lat.toFixed(6);
+  document.getElementById('projectLng').value = latlng.lng.toFixed(6);
+  if (projectMap) projectMap.panTo(latlng);
+}
+
+document.getElementById('useMyLocationBtn').addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    alert('Ye browser location support nahi karta.');
+    return;
+  }
+  const btn = document.getElementById('useMyLocationBtn');
+  btn.textContent = '📍 Location le rahe hain...';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      btn.textContent = '📍 Meri Location use karo';
+      updateProjectPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    },
+    () => {
+      btn.textContent = '📍 Meri Location use karo';
+      alert('Location nahi mil paayi. Browser permission check karein.');
+    }
+  );
+});
+
+document.getElementById('projectRadius').addEventListener('input', (e) => {
+  if (projectCircle) projectCircle.setRadius(Number(e.target.value) || 0);
+});
+
+document.getElementById('projectForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('projectId').value;
+  const payload = {
+    project_code: document.getElementById('projectCode').value,
+    project_name: document.getElementById('projectName').value,
+    latitude: Number(document.getElementById('projectLat').value),
+    longitude: Number(document.getElementById('projectLng').value),
+    radius_meters: Number(document.getElementById('projectRadius').value)
+  };
+  try {
+    if (id) {
+      await api(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/projects', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    closeModal('projectModal');
+    loadProjects();
+  } catch (err) {
+    document.getElementById('projectError').textContent = err.message;
+  }
+});
+
+// ---------- WORKERS ----------
+async function loadWorkers() {
+  const workers = await api('/workers');
+  document.querySelector('#workerTable tbody').innerHTML = workers.map(w => `
+    <tr>
+      <td>${w.emp_id}</td>
+      <td class="name-cell">${w.name}</td>
+      <td>${w.phone || '—'}</td>
+      <td>${w.project_code}</td>
+      <td><span class="status-pill ${w.current_status}">${w.current_status}</span></td>
+      <td>
+        <button class="link-btn" onclick="resetToken(${w.id})">Token dekhein</button>
+        <button class="danger-btn" onclick="deleteWorker(${w.id})">Hatayein</button>
+      </td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">Koi worker nahi hai</td></tr>`;
+}
+
+document.getElementById('newWorkerBtn').addEventListener('click', () => {
+  document.getElementById('workerForm').reset();
+  document.getElementById('workerError').textContent = '';
+  document.getElementById('workerModal').classList.add('show');
+});
+
+document.getElementById('workerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    emp_id: document.getElementById('workerEmpId').value,
+    name: document.getElementById('workerName').value,
+    phone: document.getElementById('workerPhone').value,
+    project_id: Number(document.getElementById('workerProject').value)
+  };
+  try {
+    const res = await api('/workers', { method: 'POST', body: JSON.stringify(payload) });
+    closeModal('workerModal');
+    loadWorkers();
+    loadProjects();
+    showToken(res.device_token);
+  } catch (err) {
+    document.getElementById('workerError').textContent = err.message;
+  }
+});
+
+async function resetToken(id) {
+  const res = await api(`/workers/${id}/reset-token`, { method: 'POST' });
+  showToken(res.device_token);
+}
+
+async function deleteWorker(id) {
+  if (!confirm('Ye worker hatana hai? Uska attendance history bhi delete ho jayega.')) return;
+  await api(`/workers/${id}`, { method: 'DELETE' });
+  loadWorkers();
+  loadProjects();
+}
+
+function showToken(token) {
+  document.getElementById('tokenValue').textContent = token;
+  document.getElementById('tokenModal').classList.add('show');
+}
+document.getElementById('copyTokenBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('tokenValue').textContent);
+  document.getElementById('copyTokenBtn').textContent = 'Copied ✓';
+  setTimeout(() => document.getElementById('copyTokenBtn').textContent = 'Token Copy Karein', 1500);
+});
+
+// ---------- LOGS ----------
+async function loadLogs() {
+  const projectId = document.getElementById('logProjectFilter').value;
+  const date = document.getElementById('logDateFilter').value;
+  const params = new URLSearchParams();
+  if (projectId) params.set('project_id', projectId);
+  if (date) params.set('date', date);
+  const rows = await api('/attendance/logs?' + params.toString());
+  document.querySelector('#logTable tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td>${new Date(r.event_time + 'Z').toLocaleString('en-IN')}</td>
+      <td>${r.emp_id}</td>
+      <td class="name-cell">${r.name}</td>
+      <td>${r.project_code}</td>
+      <td><span class="status-pill ${r.event_type}">${r.event_type}</span></td>
+      <td>${r.distance_meters}m</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">Koi log nahi mila</td></tr>`;
+}
+document.getElementById('logProjectFilter').addEventListener('change', loadLogs);
+document.getElementById('logDateFilter').addEventListener('change', loadLogs);
+
+// ---------- modal helpers ----------
+document.querySelectorAll('.modal-close').forEach(btn => {
+  btn.addEventListener('click', () => closeModal(btn.dataset.close));
+});
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('show'); });
+});
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+</script>
+</body>
+</html>
