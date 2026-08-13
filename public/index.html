@@ -238,6 +238,27 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
 }
 .btn-locate:active{ box-shadow: var(--pressed-sm); }
 
+/* ---------- New: address search ---------- */
+.address-search-row{ display:flex; gap:8px; margin-top:6px; }
+.address-search-row input{
+  flex:1; margin-top:0 !important; padding:11px 14px; background:var(--base); border:none;
+  color:var(--paper); border-radius:14px; box-shadow: var(--pressed);
+}
+.btn-search{
+  background:var(--base); color:var(--amber); border:none; padding:0 18px;
+  border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
+  box-shadow: var(--raised-sm);
+}
+.btn-search:active{ box-shadow: var(--pressed-sm); }
+.btn-search:disabled{ opacity:0.5; cursor:default; }
+.address-results{ margin-top:8px; }
+.address-result-item{
+  padding:10px 14px; border-radius:12px; font-size:12.5px; color:var(--paper);
+  cursor:pointer; box-shadow: var(--pressed-sm); margin-bottom:6px;
+}
+.address-result-item:hover{ color:var(--amber); }
+.address-empty{ font-size:12px; color:var(--concrete); padding:4px 2px; }
+
 /* ---------- New: export button ---------- */
 .btn-export{
   background:var(--base); color:var(--green); border:none; padding:9px 16px;
@@ -463,15 +484,22 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <input type="hidden" id="projectId">
       <div class="info-box">
         <b>Kaise kaam karta hai:</b><br>
-        Site pe jaao → "Meri Location use karo" dabao → Save karo.<br>
+        Site ka naam/address type karke <b>"Khojo"</b> dabao — bina wahan jaaye location mil jayegi.<br>
+        Ya agar wahan pahunche ho to "Meri Location use karo" bhi use kar sakte ho.<br>
         Ab sirf range ke andar se hi attendance lagegi!
       </div>
       <label>Project Code (jaise PRJ-101)</label>
       <input type="text" id="projectCode" required>
       <label>Project Naam</label>
       <input type="text" id="projectName" required>
+      <label>Site ka address/area khojein</label>
+      <div class="address-search-row">
+        <input type="text" id="addressSearch" placeholder="jaise 'Maninagar, Ahmedabad' ya poora pata">
+        <button type="button" class="btn-search" id="addressSearchBtn">Khojo</button>
+      </div>
+      <div class="address-results" id="addressResults"></div>
       <div class="location-btn-row">
-        <label style="margin-top:0">Map par site location click karein</label>
+        <label style="margin-top:0">Ya map par seedha click karein</label>
         <button type="button" class="btn-locate" id="useMyLocationBtn">📍 Meri Location use karo</button>
       </div>
       <div id="projectMap" class="map-box"></div>
@@ -878,6 +906,48 @@ document.getElementById('useMyLocationBtn').addEventListener('click', () => {
       alert('Location nahi mil paayi. Browser permission check karein.');
     }
   );
+});
+
+// ---------- Address search (no need to physically visit the site) ----------
+async function searchAddress() {
+  const query = document.getElementById('addressSearch').value.trim();
+  const resultsBox = document.getElementById('addressResults');
+  const btn = document.getElementById('addressSearchBtn');
+  if (!query) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Khoj rahe hain...';
+  resultsBox.innerHTML = '';
+
+  try {
+    const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(query));
+    const results = await res.json();
+    if (!results.length) {
+      resultsBox.innerHTML = '<div class="address-empty">Kuch nahi mila, thoda alag tarike se try karein (jaise sirf area/city ka naam).</div>';
+    } else {
+      resultsBox.innerHTML = results.map((r, i) => `
+        <div class="address-result-item" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>
+      `).join('');
+      resultsBox.querySelectorAll('.address-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const lat = Number(item.dataset.lat), lng = Number(item.dataset.lon);
+          updateProjectPos({ lat, lng });
+          if (projectMap) projectMap.setView([lat, lng], 16);
+          resultsBox.innerHTML = '';
+          document.getElementById('addressSearch').value = '';
+        });
+      });
+    }
+  } catch (e) {
+    resultsBox.innerHTML = '<div class="address-empty">Search fail hua, internet check karein aur dobara try karein.</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Khojo';
+  }
+}
+document.getElementById('addressSearchBtn').addEventListener('click', searchAddress);
+document.getElementById('addressSearch').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); searchAddress(); }
 });
 
 document.getElementById('projectRadius').addEventListener('input', (e) => {
