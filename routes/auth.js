@@ -6,16 +6,39 @@ const { signAdminToken } = require('../utils');
 const router = express.Router();
 
 router.post('/login', (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, project_code } = req.body;
   const admin = store.findOne('admins', a => a.username === username);
   if (!admin || !bcrypt.compareSync(password || '', admin.password_hash)) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
-  const token = signAdminToken(admin);
-  res.json({ token, username: admin.username });
+
+  // IT account: full access, no project scoping needed
+  if (admin.role === 'it') {
+    const token = signAdminToken(admin);
+    return res.json({ token, username: admin.username, role: 'it' });
+  }
+
+  // Admin account: must supply a valid project code — the whole panel
+  // then scopes to just that project.
+  if (!project_code || !project_code.trim()) {
+    return res.status(400).json({ error: 'Project number daalna zaroori hai' });
+  }
+  const project = store.findOne('projects', p => p.project_code.toLowerCase() === project_code.trim().toLowerCase());
+  if (!project) {
+    return res.status(400).json({ error: 'Ye project number nahi mila' });
+  }
+
+  const token = signAdminToken(admin, project.id, project.project_code);
+  res.json({
+    token,
+    username: admin.username,
+    role: 'admin',
+    project_id: project.id,
+    project_code: project.project_code,
+    project_name: project.project_name
+  });
 });
 
-// Kept for compatibility — admins are now pre-seeded, so this always reports setupDone.
 router.get('/status', (req, res) => {
   res.json({ setupDone: true });
 });

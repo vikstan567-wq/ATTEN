@@ -9,10 +9,12 @@ const bcrypt = require('bcryptjs');
 const DB_FILE = path.join(__dirname, 'data.json');
 
 // Fixed admin logins (as requested) — seeded automatically if not present.
+// role 'it'    = full access, can create/edit/delete projects
+// role 'admin' = must give a project code at login; sees ONLY that project's data
 const DEFAULT_ADMINS = [
-  { username: 'DHAVAL', password: 'AURA9999' },
-  { username: 'ADMIN', password: 'Admin123' },
-  { username: 'IT', password: 'IT@9999' }
+  { username: 'DHAVAL', password: 'AURA9999', role: 'admin' },
+  { username: 'ADMIN', password: 'Admin123', role: 'admin' },
+  { username: 'IT', password: 'IT@9999', role: 'it' }
 ];
 
 function load() {
@@ -42,7 +44,11 @@ function nextId(table) {
 }
 
 function nowISO() {
-  return new Date().toISOString().replace('T', ' ').slice(0, 19);
+  // India is UTC+5:30. We store wall-clock IST directly (not real UTC) so that
+  // every displayed time, date-bucket, and "late" comparison is correct without
+  // needing timezone conversion anywhere else in the app.
+  const istMs = Date.now() + 5.5 * 60 * 60 * 1000;
+  return new Date(istMs).toISOString().slice(0, 19).replace('T', ' ');
 }
 
 function seedDefaultAdmins() {
@@ -55,8 +61,13 @@ function seedDefaultAdmins() {
         id,
         username: acc.username,
         password_hash: bcrypt.hashSync(acc.password, 10),
+        role: acc.role,
         created_at: nowISO()
       });
+      changed = true;
+    } else if (!exists.role) {
+      // Patch older records (created before roles existed) with the right role
+      exists.role = acc.role;
       changed = true;
     }
   }

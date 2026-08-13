@@ -16,8 +16,14 @@ function distanceInMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function signAdminToken(admin) {
-  return jwt.sign({ id: admin.id, username: admin.username, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
+function signAdminToken(admin, projectId, projectCode) {
+  const payload = {
+    id: admin.id,
+    username: admin.username,
+    role: admin.role || 'admin'
+  };
+  if (projectId) { payload.project_id = projectId; payload.project_code = projectCode; }
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
 function requireAdmin(req, res, next) {

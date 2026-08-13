@@ -11,15 +11,22 @@ function withProjectInfo(w) {
   return { ...w, project_name: project ? project.project_name : null, project_code: project ? project.project_code : null };
 }
 
+// Scoped admins only ever see/act on their own project's workers
+function scopedProjectId(req, requestedId) {
+  if (req.admin.role === 'admin') return req.admin.project_id;
+  return requestedId ? Number(requestedId) : undefined;
+}
+
 router.get('/', (req, res) => {
-  const { project_id } = req.query;
-  let workers = store.findAll('workers', project_id ? w => w.project_id === Number(project_id) : undefined);
+  const projectId = scopedProjectId(req, req.query.project_id);
+  let workers = store.findAll('workers', projectId ? w => w.project_id === projectId : undefined);
   workers = workers.map(withProjectInfo).sort((a, b) => a.name.localeCompare(b.name));
   res.json(workers);
 });
 
 router.post('/', (req, res) => {
-  const { emp_id, name, phone, project_id } = req.body;
+  const { emp_id, name, phone } = req.body;
+  const project_id = scopedProjectId(req, req.body.project_id);
   if (!emp_id || !name || !project_id) {
     return res.status(400).json({ error: 'emp_id, name and project_id are required' });
   }
@@ -40,27 +47,43 @@ router.post('/', (req, res) => {
   res.json({ id: worker.id, device_token });
 });
 
+function assertOwnership(req, worker) {
+  if (req.admin.role === 'admin' && worker.project_id !== req.admin.project_id) {
+    return false;
+  }
+  return true;
+}
+
 router.put('/:id', (req, res) => {
   const worker = store.findOne('workers', w => w.id === Number(req.params.id));
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
+  if (!assertOwnership(req, worker)) return res.status(403).json({ error: 'Access denied' });
 
   const { name, phone, project_id } = req.body;
   const changes = {};
   if (name != null) changes.name = name;
   if (phone != null) changes.phone = phone;
-  if (project_id != null) changes.project_id = Number(project_id);
+  if (project_id != null && req.admin.role === 'it') changes.project_id = Number(project_id);
 
   store.updateById('workers', req.params.id, changes);
   res.json({ success: true });
 });
 
 router.post('/:id/reset-token', (req, res) => {
+  const worker = store.findOne('workers', w => w.id === Number(req.params.id));
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+  if (!assertOwnership(req, worker)) return res.status(403).json({ error: 'Access denied' });
+
   const device_token = crypto.randomBytes(16).toString('hex');
   store.updateById('workers', req.params.id, { device_token });
   res.json({ device_token });
 });
 
 router.delete('/:id', (req, res) => {
+  const worker = store.findOne('workers', w => w.id === Number(req.params.id));
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+  if (!assertOwnership(req, worker)) return res.status(403).json({ error: 'Access denied' });
+
   store.deleteWhere('attendance_logs', l => l.worker_id === Number(req.params.id));
   store.deleteWhere('workers', w => w.id === Number(req.params.id));
   res.json({ success: true });

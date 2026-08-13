@@ -78,6 +78,16 @@ input, select, button{ font-family: var(--font-body); }
 .auth-form input:focus{ box-shadow: var(--pressed), 0 0 0 2px var(--amber-dim); }
 .auth-error{ color:var(--red); font-size:12px; min-height:16px; }
 
+/* ---------- Login type toggle (IT / Admin) ---------- */
+.login-type-toggle{ display:flex; gap:8px; margin-bottom:6px; }
+.login-type-btn{
+  flex:1; background:var(--base); border:none; color:var(--concrete);
+  padding:10px; border-radius:14px; font-size:13px; font-weight:600; cursor:pointer;
+  box-shadow: var(--pressed-sm);
+}
+.login-type-btn.active{ color:var(--amber); box-shadow: var(--raised-sm); }
+#projectCodeField label{ margin-top:12px; }
+
 /* ---------- Buttons ---------- */
 .btn-primary{
   background:var(--base); color:var(--amber); border:none; padding:13px 20px;
@@ -287,11 +297,20 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
     </div>
     <p class="auth-sub" id="authSubtitle">Admin panel me login karein</p>
 
+    <div class="login-type-toggle">
+      <button type="button" class="login-type-btn active" data-type="it" id="itToggleBtn">IT</button>
+      <button type="button" class="login-type-btn" data-type="admin" id="adminToggleBtn">Admin</button>
+    </div>
+
     <form id="loginForm" class="auth-form">
       <label>Username</label>
       <input type="text" id="loginUsername" required autocomplete="username">
       <label>Password</label>
       <input type="password" id="loginPassword" required autocomplete="current-password">
+      <div id="projectCodeField" style="display:none">
+        <label>Project Number</label>
+        <input type="text" id="loginProjectCode" placeholder="jaise PRJ-101">
+      </div>
       <div class="auth-error" id="loginError"></div>
       <button type="submit" class="btn-primary">Login</button>
     </form>
@@ -325,7 +344,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
         <h1>Aaj ki Attendance</h1>
         <div class="filter-row">
           <span class="date-badge" id="todayDateBadge"></span>
-          <select id="dashProjectFilter"><option value="">Saare Projects</option></select>
+          <select id="dashProjectFilter" class="project-scope-filter"><option value="">Saare Projects</option></select>
         </div>
       </div>
       <div class="stat-row" id="statRow"></div>
@@ -344,7 +363,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
         <div class="filter-row">
           <select id="monthlyMonth"></select>
           <select id="monthlyYear"></select>
-          <select id="monthlyProjectFilter"><option value="">Saare Projects</option></select>
+          <select id="monthlyProjectFilter" class="project-scope-filter"><option value="">Saare Projects</option></select>
           <button class="btn-export" id="monthlyExportBtn">⬇ Excel</button>
         </div>
       </div>
@@ -418,7 +437,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <div class="panel-head">
         <h1>Attendance Logs</h1>
         <div class="filter-row">
-          <select id="logProjectFilter"><option value="">Saare Projects</option></select>
+          <select id="logProjectFilter" class="project-scope-filter"><option value="">Saare Projects</option></select>
           <input type="date" id="logDateFilter">
         </div>
       </div>
@@ -508,6 +527,8 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
 <script>
 const API = '/api';
 let TOKEN = localStorage.getItem('admin_token') || '';
+let ROLE = localStorage.getItem('admin_role') || '';
+let MY_PROJECT_ID = localStorage.getItem('admin_project_id') || '';
 let projectMap, projectMarker, projectCircle;
 
 // ---------- fetch helper ----------
@@ -528,14 +549,33 @@ async function api(path, opts = {}) {
 // ---------- boot ----------
 if (TOKEN) showApp();
 
+// Login type toggle (IT / Admin)
+let loginType = 'it';
+document.querySelectorAll('.login-type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.login-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loginType = btn.dataset.type;
+    document.getElementById('projectCodeField').style.display = loginType === 'admin' ? 'block' : 'none';
+    document.getElementById('loginProjectCode').required = loginType === 'admin';
+  });
+});
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('loginUsername').value;
   const password = document.getElementById('loginPassword').value;
+  const project_code = document.getElementById('loginProjectCode').value;
   try {
-    const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    const payload = { username, password };
+    if (loginType === 'admin') payload.project_code = project_code;
+    const data = await api('/auth/login', { method: 'POST', body: JSON.stringify(payload) });
     TOKEN = data.token;
+    ROLE = data.role;
+    MY_PROJECT_ID = data.project_id || '';
     localStorage.setItem('admin_token', TOKEN);
+    localStorage.setItem('admin_role', ROLE);
+    localStorage.setItem('admin_project_id', MY_PROJECT_ID);
     showApp();
   } catch (err) {
     document.getElementById('loginError').textContent = err.message;
@@ -544,6 +584,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_role');
+  localStorage.removeItem('admin_project_id');
   location.reload();
 });
 
@@ -551,6 +593,14 @@ function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('todayDateBadge').textContent = new Date().toLocaleDateString('hi-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Scoped admins (role 'admin') only manage their own project's data —
+  // hide project-management UI and cross-project filters entirely.
+  if (ROLE === 'admin') {
+    document.querySelector('[data-tab="projects"]').style.display = 'none';
+    document.querySelectorAll('.project-scope-filter').forEach(el => el.style.display = 'none');
+  }
+
   loadDashboard();
   loadProjects();
   loadWorkers();
@@ -598,9 +648,13 @@ async function loadDashboard() {
 document.getElementById('dashProjectFilter').addEventListener('change', loadDashboard);
 setInterval(() => { if (document.getElementById('tab-dashboard').classList.contains('active')) loadDashboard(); }, 15000);
 
-function timeAgo(iso) {
-  const diff = (Date.now() - new Date(iso + 'Z').getTime()) / 1000;
-  if (diff < 60) return Math.floor(diff) + 's pehle';
+function timeAgo(istWallClock) {
+  // Stored timestamps are IST wall-clock (not real UTC). Interpreting the digits
+  // as UTC gives an instant that's 5:30 ahead of the true moment, so we correct for it.
+  const asIfUTC = new Date(istWallClock.replace(' ', 'T') + 'Z').getTime();
+  const trueEventEpoch = asIfUTC - 5.5 * 60 * 60 * 1000;
+  const diff = (Date.now() - trueEventEpoch) / 1000;
+  if (diff < 60) return Math.max(0, Math.floor(diff)) + 's pehle';
   if (diff < 3600) return Math.floor(diff / 60) + 'm pehle';
   return Math.floor(diff / 3600) + 'h pehle';
 }
@@ -934,7 +988,7 @@ async function loadLogs() {
   const rows = await api('/attendance/logs?' + params.toString());
   document.querySelector('#logTable tbody').innerHTML = rows.map(r => `
     <tr>
-      <td>${new Date(r.event_time + 'Z').toLocaleString('en-IN')}</td>
+      <td>${r.event_time}</td>
       <td>${r.emp_id}</td>
       <td class="name-cell">${r.name}</td>
       <td>${r.project_code}</td>

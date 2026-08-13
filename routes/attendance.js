@@ -18,7 +18,8 @@ function enrichWorkerRow(w) {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const istMs = Date.now() + 5.5 * 60 * 60 * 1000;
+  return new Date(istMs).toISOString().slice(0, 10);
 }
 
 function daysInMonth(year, month) {
@@ -77,10 +78,17 @@ function filteredWorkers(project_id, search) {
   return workers;
 }
 
+// Scoped admins (role 'admin') only ever see their own project's data,
+// regardless of what project_id query param they pass.
+function scopedProjectId(req, requestedId) {
+  if (req.admin.role === 'admin') return req.admin.project_id;
+  return requestedId ? Number(requestedId) : undefined;
+}
+
 // ---------- Live status (unchanged) ----------
 router.get('/live', (req, res) => {
-  const { project_id } = req.query;
-  let workers = store.findAll('workers', project_id ? w => w.project_id === Number(project_id) : undefined);
+  const projectId = scopedProjectId(req, req.query.project_id);
+  let workers = store.findAll('workers', projectId ? w => w.project_id === projectId : undefined);
   const rows = workers.map(enrichWorkerRow)
     .sort((a, b) => (a.current_status === b.current_status ? a.name.localeCompare(b.name) : (a.current_status === 'IN' ? -1 : 1)));
   res.json(rows);
@@ -88,9 +96,10 @@ router.get('/live', (req, res) => {
 
 // ---------- Raw event log (unchanged) ----------
 router.get('/logs', (req, res) => {
-  const { project_id, worker_id, date } = req.query;
+  const { worker_id, date } = req.query;
+  const projectId = scopedProjectId(req, req.query.project_id);
   let logs = store.findAll('attendance_logs');
-  if (project_id) logs = logs.filter(l => l.project_id === Number(project_id));
+  if (projectId) logs = logs.filter(l => l.project_id === projectId);
   if (worker_id) logs = logs.filter(l => l.worker_id === Number(worker_id));
   if (date) logs = logs.filter(l => (l.event_time || '').startsWith(date));
 
@@ -112,9 +121,10 @@ router.get('/logs', (req, res) => {
 
 // ---------- Daily summary: Present / Absent / Late / Total ----------
 router.get('/daily-summary', (req, res) => {
-  const { project_id, date } = req.query;
+  const { date } = req.query;
+  const projectId = scopedProjectId(req, req.query.project_id);
   const dateStr = date || todayStr();
-  const workers = filteredWorkers(project_id);
+  const workers = filteredWorkers(projectId);
   const allLogs = store.findAll('attendance_logs');
 
   const records = workers.map(w => {
@@ -133,11 +143,12 @@ router.get('/daily-summary', (req, res) => {
 
 // ---------- Monthly report: pie breakdown + daily trend + records table ----------
 router.get('/monthly', (req, res) => {
-  const { project_id, month, year } = req.query;
+  const { month, year } = req.query;
+  const projectId = scopedProjectId(req, req.query.project_id);
   const now = new Date();
   const y = Number(year) || now.getFullYear();
   const m = Number(month) || (now.getMonth() + 1); // 1-indexed
-  const workers = filteredWorkers(project_id);
+  const workers = filteredWorkers(projectId);
   const allLogs = store.findAll('attendance_logs');
 
   const totalDays = daysInMonth(y, m);
@@ -178,8 +189,9 @@ router.get('/monthly', (req, res) => {
 
 // ---------- Full history: searchable, date-filterable attendance records ----------
 router.get('/history', (req, res) => {
-  const { project_id, search, date, limit } = req.query;
-  const workers = filteredWorkers(project_id, search);
+  const { search, date, limit } = req.query;
+  const projectId = scopedProjectId(req, req.query.project_id);
+  const workers = filteredWorkers(projectId, search);
   const allLogs = store.findAll('attendance_logs');
 
   let dates;
@@ -215,8 +227,9 @@ function toCSV(records) {
 }
 
 router.get('/export', (req, res) => {
-  const { scope, project_id, month, year, search, date } = req.query;
-  const workers = filteredWorkers(project_id, search);
+  const { scope, month, year, search, date } = req.query;
+  const projectId = scopedProjectId(req, req.query.project_id);
+  const workers = filteredWorkers(projectId, search);
   const allLogs = store.findAll('attendance_logs');
   let records = [];
 
