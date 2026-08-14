@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -316,7 +316,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <span class="brand-name">maswer</span>
       <span class="brand-pill">attend</span>
     </div>
-    <p class="auth-sub" id="authSubtitle">Admin panel me login karein</p>
+    <p class="auth-sub" id="authSubtitle">Login to admin panel</p>
 
     <div class="login-type-toggle">
       <button type="button" class="login-type-btn active" data-type="it" id="itToggleBtn">IT</button>
@@ -330,7 +330,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <input type="password" id="loginPassword" required autocomplete="current-password">
       <div id="projectCodeField" style="display:none">
         <label>Project Number</label>
-        <input type="text" id="loginProjectCode" placeholder="jaise PRJ-101">
+        <input type="text" id="loginProjectCode" placeholder="e.g. PRJ-101">
       </div>
       <div class="auth-error" id="loginError"></div>
       <button type="submit" class="btn-primary">Login</button>
@@ -362,16 +362,16 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="panel active">
       <div class="panel-head">
-        <h1>Aaj ki Attendance</h1>
+        <h1>Today's Attendance</h1>
         <div class="filter-row">
           <span class="date-badge" id="todayDateBadge"></span>
-          <select id="dashProjectFilter" class="project-scope-filter"><option value="">Saare Projects</option></select>
+          <select id="dashProjectFilter" class="project-scope-filter"><option value="">All Projects</option></select>
         </div>
       </div>
       <div class="stat-row" id="statRow"></div>
       <div class="table-wrap">
         <table id="liveTable">
-          <thead><tr><th>Emp ID</th><th>Naam</th><th>Project</th><th>Status</th><th>Last Ping</th></tr></thead>
+          <thead><tr><th>Emp ID</th><th>Name</th><th>Project</th><th>Status</th><th>Last Ping</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -384,13 +384,13 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
         <div class="filter-row">
           <select id="monthlyMonth"></select>
           <select id="monthlyYear"></select>
-          <select id="monthlyProjectFilter" class="project-scope-filter"><option value="">Saare Projects</option></select>
+          <select id="monthlyProjectFilter" class="project-scope-filter"><option value="">All Projects</option></select>
           <button class="btn-export" id="monthlyExportBtn">⬇ Excel</button>
         </div>
       </div>
       <div class="report-grid">
         <div class="report-box">
-          <h3>Is mahine ka breakdown</h3>
+          <h3>This month's breakdown</h3>
           <div class="pie-row">
             <svg id="pieChart" viewBox="0 0 120 120" width="120" height="120"></svg>
             <div class="pie-legend" id="pieLegend"></div>
@@ -403,7 +403,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       </div>
       <div class="table-wrap">
         <table id="monthlyTable">
-          <thead><tr><th>Employee</th><th>Emp ID</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Kaam</th><th>Status</th></tr></thead>
+          <thead><tr><th>Employee</th><th>Emp ID</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Hours</th><th>Status</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -416,15 +416,15 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       </div>
       <div class="table-wrap">
         <div class="history-toolbar">
-          <span class="history-title">Poori History</span>
+          <span class="history-title">Full History</span>
           <button class="btn-export" id="historyExportBtn">⬇ Full Excel</button>
         </div>
         <div class="history-filters">
-          <input type="text" id="historySearch" placeholder="Name ya EMP ID...">
+          <input type="text" id="historySearch" placeholder="Name or Emp ID...">
           <input type="date" id="historyDate">
         </div>
         <table id="historyTable">
-          <thead><tr><th>Employee</th><th>Emp ID</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Kaam</th><th>Status</th></tr></thead>
+          <thead><tr><th>Employee</th><th>Emp ID</th><th>Date</th><th>Check-In</th><th>Check-Out</th><th>Hours</th><th>Status</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -434,7 +434,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
     <section id="tab-projects" class="panel">
       <div class="panel-head">
         <h1>Projects</h1>
-        <button class="btn-primary" id="newProjectBtn">+ Naya Project</button>
+        <button class="btn-primary" id="newProjectBtn">+ New Project</button>
       </div>
       <div class="card-grid" id="projectGrid"></div>
     </section>
@@ -443,11 +443,11 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
     <section id="tab-workers" class="panel">
       <div class="panel-head">
         <h1>Workers</h1>
-        <button class="btn-primary" id="newWorkerBtn">+ Naya Worker</button>
+        <button class="btn-primary" id="newWorkerBtn">+ New Worker</button>
       </div>
       <div class="table-wrap">
         <table id="workerTable">
-          <thead><tr><th>Emp ID</th><th>Naam</th><th>Phone</th><th>Project</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Emp ID</th><th>Name</th><th>Phone</th><th>Project</th><th>Status</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -458,13 +458,13 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <div class="panel-head">
         <h1>Attendance Logs</h1>
         <div class="filter-row">
-          <select id="logProjectFilter" class="project-scope-filter"><option value="">Saare Projects</option></select>
+          <select id="logProjectFilter" class="project-scope-filter"><option value="">All Projects</option></select>
           <input type="date" id="logDateFilter">
         </div>
       </div>
       <div class="table-wrap">
         <table id="logTable">
-          <thead><tr><th>Time</th><th>Emp ID</th><th>Naam</th><th>Project</th><th>Event</th><th>Distance</th></tr></thead>
+          <thead><tr><th>Time</th><th>Emp ID</th><th>Name</th><th>Project</th><th>Event</th><th>Distance</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -477,30 +477,30 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
 <div id="projectModal" class="modal-overlay">
   <div class="modal">
     <div class="modal-head">
-      <h2 id="projectModalTitle">Naya Project</h2>
+      <h2 id="projectModalTitle">New Project</h2>
       <button class="modal-close" data-close="projectModal">&times;</button>
     </div>
     <form id="projectForm">
       <input type="hidden" id="projectId">
       <div class="info-box">
-        <b>Kaise kaam karta hai:</b><br>
-        Site ka naam/address type karke <b>"Khojo"</b> dabao — bina wahan jaaye location mil jayegi.<br>
-        Ya agar wahan pahunche ho to "Meri Location use karo" bhi use kar sakte ho.<br>
-        Ab sirf range ke andar se hi attendance lagegi!
+        <b>How it works:</b><br>
+        Type the site's name/address and press <b>"Search"</b> — you'll get the location without visiting it.<br>
+        Or if you're already there, you can use "Use My Location" too.<br>
+        Attendance will only be marked from within the range!
       </div>
       <label>Project Code (jaise PRJ-101)</label>
       <input type="text" id="projectCode" required>
-      <label>Project Naam</label>
+      <label>Project Name</label>
       <input type="text" id="projectName" required>
-      <label>Site ka address/area khojein</label>
+      <label>Search site address/area</label>
       <div class="address-search-row">
-        <input type="text" id="addressSearch" placeholder="jaise 'Maninagar, Ahmedabad' ya poora pata">
-        <button type="button" class="btn-search" id="addressSearchBtn">Khojo</button>
+        <input type="text" id="addressSearch" placeholder="e.g. 'Maninagar, Ahmedabad' or full address">
+        <button type="button" class="btn-search" id="addressSearchBtn">Search</button>
       </div>
       <div class="address-results" id="addressResults"></div>
       <div class="location-btn-row">
-        <label style="margin-top:0">Ya map par seedha click karein</label>
-        <button type="button" class="btn-locate" id="useMyLocationBtn">📍 Meri Location use karo</button>
+        <label style="margin-top:0">Or click directly on the map</label>
+        <button type="button" class="btn-locate" id="useMyLocationBtn">📍 Use My Location</button>
       </div>
       <div id="projectMap" class="map-box"></div>
       <div class="coord-row">
@@ -519,20 +519,20 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
 <div id="workerModal" class="modal-overlay">
   <div class="modal">
     <div class="modal-head">
-      <h2>Naya Worker</h2>
+      <h2>New Worker</h2>
       <button class="modal-close" data-close="workerModal">&times;</button>
     </div>
     <form id="workerForm">
       <label>Employee ID</label>
       <input type="text" id="workerEmpId" required>
-      <label>Naam</label>
+      <label>Name</label>
       <input type="text" id="workerName" required>
       <label>Phone (optional)</label>
       <input type="text" id="workerPhone">
-      <label>Project Assign karein</label>
+      <label>Assign Project</label>
       <select id="workerProject" required></select>
       <div class="form-error" id="workerError"></div>
-      <button type="submit" class="btn-primary full">Worker Add karein</button>
+      <button type="submit" class="btn-primary full">Add Worker</button>
     </form>
   </div>
 </div>
@@ -544,10 +544,10 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <h2>Worker Ready ✓</h2>
       <button class="modal-close" data-close="tokenModal">&times;</button>
     </div>
-    <p class="token-help">Ye <b>link</b> worker ko bhej do (WhatsApp se bhi). Worker sirf <b>ek baar khole</b> aur location permission de — uske baad kabhi kuch nahi karna, range me aate/jaate hi attendance khud lagegi.</p>
+    <p class="token-help">Send this <b>link</b> to the worker (WhatsApp works too). The worker just needs to <b>open it once</b> and grant location permission — after that, attendance will be marked automatically as they enter/exit the range.</p>
     <div class="token-box" id="tokenValue"></div>
-    <button class="btn-primary full" id="copyTokenBtn">Link Copy Karein</button>
-    <button class="btn-ghost full" id="shareTokenBtn" style="margin-top:10px; width:100%;">WhatsApp par bhejein</button>
+    <button class="btn-primary full" id="copyTokenBtn">Copy Link</button>
+    <button class="btn-ghost full" id="shareTokenBtn" style="margin-top:10px; width:100%;">Send via WhatsApp</button>
   </div>
 </div>
 
@@ -620,7 +620,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('todayDateBadge').textContent = new Date().toLocaleDateString('hi-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('todayDateBadge').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   // Scoped admins (role 'admin') only manage their own project's data —
   // hide project-management UI and cross-project filters entirely.
@@ -671,7 +671,7 @@ async function loadDashboard() {
       <td><span class="status-pill ${r.current_status}">${r.current_status}</span></td>
       <td>${r.last_ping_at ? timeAgo(r.last_ping_at) : '—'}</td>
     </tr>
-  `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--concrete)">Koi worker nahi mila</td></tr>`;
+  `).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--concrete)">No workers found</td></tr>`;
 }
 document.getElementById('dashProjectFilter').addEventListener('change', loadDashboard);
 setInterval(() => { if (document.getElementById('tab-dashboard').classList.contains('active')) loadDashboard(); }, 15000);
@@ -682,9 +682,9 @@ function timeAgo(istWallClock) {
   const asIfUTC = new Date(istWallClock.replace(' ', 'T') + 'Z').getTime();
   const trueEventEpoch = asIfUTC - 5.5 * 60 * 60 * 1000;
   const diff = (Date.now() - trueEventEpoch) / 1000;
-  if (diff < 60) return Math.max(0, Math.floor(diff)) + 's pehle';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm pehle';
-  return Math.floor(diff / 3600) + 'h pehle';
+  if (diff < 60) return Math.max(0, Math.floor(diff)) + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  return Math.floor(diff / 3600) + 'h ago';
 }
 
 // ---------- MONTHLY REPORT ----------
@@ -737,11 +737,11 @@ async function loadMonthly() {
       <td>${r.emp_id}</td>
       <td>${r.date}</td>
       <td>${r.check_in ? r.check_in.slice(11,16) : '—'}</td>
-      <td>${r.check_out ? r.check_out.slice(11,16) : 'Abhi IN'}</td>
+      <td>${r.check_out ? r.check_out.slice(11,16) : 'Currently IN'}</td>
       <td>${r.hours}h</td>
       <td><span class="status-pill ${r.status === 'Absent' ? 'OUT' : 'IN'}">${r.status}</span></td>
     </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--concrete)">Koi record nahi mila</td></tr>`;
+  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--concrete)">No records found</td></tr>`;
 }
 document.getElementById('monthlyMonth').addEventListener('change', loadMonthly);
 document.getElementById('monthlyYear').addEventListener('change', loadMonthly);
@@ -791,11 +791,11 @@ async function loadHistory() {
       <td>${r.emp_id}</td>
       <td>${r.date}</td>
       <td>${r.check_in ? r.check_in.slice(11,16) : '—'}</td>
-      <td>${r.check_out ? r.check_out.slice(11,16) : 'Abhi IN'}</td>
+      <td>${r.check_out ? r.check_out.slice(11,16) : 'Currently IN'}</td>
       <td>${r.hours}h</td>
       <td><span class="status-pill ${r.status === 'Absent' ? 'OUT' : 'IN'}">${r.status}</span></td>
     </tr>
-  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--concrete)">Koi record nahi mila</td></tr>`;
+  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--concrete)">No records found</td></tr>`;
 }
 document.getElementById('historySearch').addEventListener('input', () => {
   clearTimeout(historyDebounce);
@@ -837,13 +837,13 @@ async function loadProjects() {
         <span>Present: <b>${p.present_count}</b></span>
       </div>
     </div>
-  `).join('') || `<p style="color:var(--concrete)">Abhi koi project nahi hai. "+ Naya Project" par click karein.</p>`;
+  `).join('') || `<p style="color:var(--concrete)">No projects yet. Click "+ New Project" to add one.</p>`;
 
   // populate filters/selects
   const opts = allProjects.map(p => `<option value="${p.id}">${p.project_code} — ${p.project_name}</option>`).join('');
-  document.getElementById('dashProjectFilter').innerHTML = '<option value="">Saare Projects</option>' + opts;
-  document.getElementById('logProjectFilter').innerHTML = '<option value="">Saare Projects</option>' + opts;
-  document.getElementById('monthlyProjectFilter').innerHTML = '<option value="">Saare Projects</option>' + opts;
+  document.getElementById('dashProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
+  document.getElementById('logProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
+  document.getElementById('monthlyProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
   document.getElementById('workerProject').innerHTML = opts;
 }
 
@@ -851,7 +851,7 @@ document.getElementById('newProjectBtn').addEventListener('click', () => openPro
 
 function openProjectModal(id) {
   const project = allProjects.find(p => p.id === id);
-  document.getElementById('projectModalTitle').textContent = project ? 'Project Edit karein' : 'Naya Project';
+  document.getElementById('projectModalTitle').textContent = project ? 'Edit Project' : 'New Project';
   document.getElementById('projectId').value = id || '';
   document.getElementById('projectCode').value = project ? project.project_code : '';
   document.getElementById('projectCode').disabled = !!project;
@@ -891,19 +891,19 @@ function updateProjectPos(latlng) {
 
 document.getElementById('useMyLocationBtn').addEventListener('click', () => {
   if (!navigator.geolocation) {
-    alert('Ye browser location support nahi karta.');
+    alert("This browser doesn't support location.");
     return;
   }
   const btn = document.getElementById('useMyLocationBtn');
-  btn.textContent = '📍 Location le rahe hain...';
+  btn.textContent = '📍 Getting location...';
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      btn.textContent = '📍 Meri Location use karo';
+      btn.textContent = '📍 Use My Location';
       updateProjectPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
     },
     () => {
-      btn.textContent = '📍 Meri Location use karo';
-      alert('Location nahi mil paayi. Browser permission check karein.');
+      btn.textContent = '📍 Use My Location';
+      alert("Couldn't get your location. Check browser permission.");
     }
   );
 });
@@ -916,14 +916,14 @@ async function searchAddress() {
   if (!query) return;
 
   btn.disabled = true;
-  btn.textContent = 'Khoj rahe hain...';
+  btn.textContent = 'Searching...';
   resultsBox.innerHTML = '';
 
   try {
     const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(query));
     const results = await res.json();
     if (!results.length) {
-      resultsBox.innerHTML = '<div class="address-empty">Kuch nahi mila, thoda alag tarike se try karein (jaise sirf area/city ka naam).</div>';
+      resultsBox.innerHTML = '<div class="address-empty">No results found. Try a different search (e.g. just the area/city name).</div>';
     } else {
       resultsBox.innerHTML = results.map((r, i) => `
         <div class="address-result-item" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name}</div>
@@ -939,10 +939,10 @@ async function searchAddress() {
       });
     }
   } catch (e) {
-    resultsBox.innerHTML = '<div class="address-empty">Search fail hua, internet check karein aur dobara try karein.</div>';
+    resultsBox.innerHTML = '<div class="address-empty">Search failed. Check your internet and try again.</div>';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Khojo';
+    btn.textContent = 'Search';
   }
 }
 document.getElementById('addressSearchBtn').addEventListener('click', searchAddress);
@@ -988,11 +988,11 @@ async function loadWorkers() {
       <td>${w.project_code}</td>
       <td><span class="status-pill ${w.current_status}">${w.current_status}</span></td>
       <td>
-        <button class="link-btn" onclick="resetToken(${w.id})">Token dekhein</button>
-        <button class="danger-btn" onclick="deleteWorker(${w.id})">Hatayein</button>
+        <button class="link-btn" onclick="resetToken(${w.id})">View Token</button>
+        <button class="danger-btn" onclick="deleteWorker(${w.id})">Remove</button>
       </td>
     </tr>
-  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">Koi worker nahi hai</td></tr>`;
+  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">No workers yet</td></tr>`;
 }
 
 document.getElementById('newWorkerBtn').addEventListener('click', () => {
@@ -1026,7 +1026,7 @@ async function resetToken(id) {
 }
 
 async function deleteWorker(id) {
-  if (!confirm('Ye worker hatana hai? Uska attendance history bhi delete ho jayega.')) return;
+  if (!confirm('Delete this worker? Their attendance history will also be deleted.')) return;
   await api(`/workers/${id}`, { method: 'DELETE' });
   loadWorkers();
   loadProjects();
@@ -1040,11 +1040,11 @@ function showToken(token) {
 document.getElementById('copyTokenBtn').addEventListener('click', () => {
   navigator.clipboard.writeText(document.getElementById('tokenValue').textContent);
   document.getElementById('copyTokenBtn').textContent = 'Copied ✓';
-  setTimeout(() => document.getElementById('copyTokenBtn').textContent = 'Link Copy Karein', 1500);
+  setTimeout(() => document.getElementById('copyTokenBtn').textContent = 'Copy Link', 1500);
 });
 document.getElementById('shareTokenBtn').addEventListener('click', () => {
   const link = document.getElementById('tokenValue').textContent;
-  const msg = encodeURIComponent('Attendance ke liye ye link ek baar kholein aur location permission de dein: ' + link);
+  const msg = encodeURIComponent('Open this link once for attendance and grant location permission: ' + link);
   window.open('https://wa.me/?text=' + msg, '_blank');
 });
 
@@ -1065,7 +1065,7 @@ async function loadLogs() {
       <td><span class="status-pill ${r.event_type}">${r.event_type}</span></td>
       <td>${r.distance_meters}m</td>
     </tr>
-  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">Koi log nahi mila</td></tr>`;
+  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">No logs found</td></tr>`;
 }
 document.getElementById('logProjectFilter').addEventListener('change', loadLogs);
 document.getElementById('logDateFilter').addEventListener('change', loadLogs);

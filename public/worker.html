@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,10 +43,10 @@
     <div class="brand"><span class="plus">+</span> maswer attend</div>
     <div class="worker-name" id="workerLabel">Loading…</div>
     <div class="status-circle wait" id="statusCircle">
-      <div class="label pulse" id="statusLabel">Shuru ho raha hai…</div>
+      <div class="label pulse" id="statusLabel">Starting…</div>
       <div class="sub" id="statusSub"></div>
     </div>
-    <div class="msg">Is page ko <b>khula rakhein</b>. Range ke andar aate hi <b>IN</b>, bahar jaate hi <b>OUT</b> apne aap lagega — kuch dabana nahi hai.</div>
+    <div class="msg">Keep this page <b>open</b>. Attendance will automatically switch to <b>IN</b> when you enter the range and <b>OUT</b> when you leave — nothing to tap.</div>
     <div class="error" id="errorMsg"></div>
   </div>
 
@@ -60,8 +60,8 @@ const workerLabel = document.getElementById('workerLabel');
 const errorMsg = document.getElementById('errorMsg');
 
 if (!token) {
-  workerLabel.textContent = 'Token nahi mila';
-  errorMsg.textContent = 'Ye link galat hai. Admin se sahi link maangein.';
+  workerLabel.textContent = 'Token missing';
+  errorMsg.textContent = 'This link is invalid. Ask your admin for the correct link.';
 } else {
   init();
 }
@@ -74,7 +74,7 @@ async function init() {
     workerLabel.textContent = data.worker_name + ' (' + data.emp_id + ') — ' + data.project_name;
     startTracking();
   } catch (e) {
-    workerLabel.textContent = 'Setup nahi ho paaya';
+    workerLabel.textContent = 'Setup failed';
     errorMsg.textContent = e.message;
   }
 }
@@ -106,10 +106,10 @@ function sendPing() {
       updateStatus(data);
       errorMsg.textContent = '';
     } catch (e) {
-      errorMsg.textContent = 'Update fail hua, dobara try ho raha hai…';
+      errorMsg.textContent = 'Update failed, retrying…';
     }
   }, () => {
-    errorMsg.textContent = 'Location permission zaroori hai. Browser settings check karein.';
+    errorMsg.textContent = 'Location permission is required. Check your browser settings.';
   }, { enableHighAccuracy: true, timeout: 15000 });
 }
 
@@ -117,7 +117,7 @@ function updateStatus(data) {
   statusCircle.className = 'status-circle ' + (data.status === 'IN' ? 'in' : 'out');
   statusLabel.className = 'label';
   statusLabel.textContent = data.status;
-  statusSub.textContent = data.distance_meters + 'm door (range: ' + data.radius_meters + 'm)';
+  statusSub.textContent = data.distance_meters + 'm away (range: ' + data.radius_meters + 'm)';
 }
 </script>
 </body>

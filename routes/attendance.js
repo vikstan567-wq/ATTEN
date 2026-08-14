@@ -127,10 +127,15 @@ router.get('/daily-summary', (req, res) => {
   const workers = filteredWorkers(projectId);
   const allLogs = store.findAll('attendance_logs');
 
-  const records = workers.map(w => {
-    const project = store.findOne('projects', p => p.id === w.project_id);
-    return buildDayRecord(w, project, dateStr, allLogs);
-  });
+  const records = workers
+    .filter(w => {
+      const workerStartDate = (w.created_at || '').slice(0, 10);
+      return !workerStartDate || dateStr >= workerStartDate;
+    })
+    .map(w => {
+      const project = store.findOne('projects', p => p.id === w.project_id);
+      return buildDayRecord(w, project, dateStr, allLogs);
+    });
 
   res.json({
     date: dateStr,
@@ -164,6 +169,10 @@ router.get('/monthly', (req, res) => {
     const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     let attendedToday = 0;
     for (const w of workers) {
+      // Don't count days before this worker even existed in the system as "Absent"
+      const workerStartDate = (w.created_at || '').slice(0, 10);
+      if (workerStartDate && dateStr < workerStartDate) continue;
+
       const project = store.findOne('projects', p => p.id === w.project_id);
       const rec = buildDayRecord(w, project, dateStr, allLogs);
       if (rec.status === 'Present') present++;
