@@ -32,6 +32,29 @@ Teeno se poora access milta hai — projects, workers, locations sab kuch. Deplo
 
 > Late ki definition: agar kisi worker ka pehla check-in **10:30 AM** ke baad hota hai to use "Late" mark kiya jaata hai. Ye time `routes/attendance.js` file me `LATE_AFTER` variable badal ke change kar sakte ho.
 
+## ⚠️ IMPORTANT: Persistent database setup (do this first)
+
+Earlier this app stored data in a simple file, which **gets wiped every time Render's free server restarts** (this happens automatically after ~15 minutes of no traffic — that's why data seemed to "disappear on refresh"). This is now fixed by using **MongoDB Atlas**, a free cloud database that never gets wiped.
+
+**Setup (5 minutes, no credit card needed):**
+
+1. Go to **[mongodb.com/cloud/atlas/register](https://www.mongodb.com/cloud/atlas/register)** and sign up (free)
+2. It'll ask to create a cluster — choose the **free "M0" tier**, any cloud provider/region is fine
+3. When asked for a username/password for database access, set one and **save it somewhere** (you'll need it)
+4. Under **Network Access**, click **"Add IP Address"** → choose **"Allow access from anywhere"** (0.0.0.0/0) — needed since Render's servers use changing IPs
+5. Once the cluster is ready, click **"Connect"** → **"Drivers"** → copy the connection string, which looks like:
+   ```
+   mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+   ```
+6. Replace `<username>` and `<password>` with what you set in step 3
+
+**Add it to Render:**
+1. Go to your Render service → **Environment** tab
+2. Add a new variable: Key = `MONGODB_URI`, Value = the connection string from above
+3. Save — Render will automatically redeploy
+
+That's it — from now on, your data (projects, workers, attendance) is permanently safe even if the server restarts.
+
 ## Local test
 
 ```bash

@@ -7,16 +7,6 @@ router.use(requireAdmin);
 
 const LATE_AFTER = '10:30'; // HH:MM — first check-in after this time counts as "Late"
 
-function enrichWorkerRow(w) {
-  const project = store.findOne('projects', p => p.id === w.project_id);
-  return {
-    id: w.id, emp_id: w.emp_id, name: w.name,
-    current_status: w.current_status, last_ping_at: w.last_ping_at,
-    project_name: project ? project.project_name : null,
-    project_code: project ? project.project_code : null
-  };
-}
-
 function todayStr() {
   const istMs = Date.now() + 5.5 * 60 * 60 * 1000;
   return new Date(istMs).toISOString().slice(0, 10);
@@ -69,158 +59,197 @@ function buildDayRecord(worker, project, dateStr, dayLogs) {
   };
 }
 
-function filteredWorkers(project_id, search) {
-  let workers = store.findAll('workers', project_id ? w => w.project_id === Number(project_id) : undefined);
+function filterWorkers(workers, project_id, search) {
+  let result = project_id ? workers.filter(w => w.project_id === Number(project_id)) : workers;
   if (search) {
     const q = search.toLowerCase();
-    workers = workers.filter(w => w.name.toLowerCase().includes(q) || w.emp_id.toLowerCase().includes(q));
+    result = result.filter(w => w.name.toLowerCase().includes(q) || w.emp_id.toLowerCase().includes(q));
   }
-  return workers;
+  return result;
 }
 
-// Scoped admins (role 'admin') only ever see their own project's data,
-// regardless of what project_id query param they pass.
 function scopedProjectId(req, requestedId) {
   if (req.admin.role === 'admin') return req.admin.project_id;
   return requestedId ? Number(requestedId) : undefined;
 }
 
-// ---------- Live status (unchanged) ----------
-router.get('/live', (req, res) => {
-  const projectId = scopedProjectId(req, req.query.project_id);
-  let workers = store.findAll('workers', projectId ? w => w.project_id === projectId : undefined);
-  const rows = workers.map(enrichWorkerRow)
-    .sort((a, b) => (a.current_status === b.current_status ? a.name.localeCompare(b.name) : (a.current_status === 'IN' ? -1 : 1)));
-  res.json(rows);
+function lastDayOfMonth(y, m) {
+  const totalDays = daysInMonth(y, m);
+  const todayIso = todayStr();
+  return (`${y}-${String(m).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}` > todayIso)
+    ? Number(todayIso.slice(8, 10)) : totalDays;
+}
+
+// ---------- Live status ----------
+router.get('/live', async (req, res) => {
+  try {
+    const projectId = scopedProjectId(req, req.query.project_id);
+    const workers = await store.findAll('workers', projectId ? w => w.project_id === projectId : undefined);
+    const projects = await store.findAll('projects');
+    const projectById = new Map(projects.map(p => [p.id, p]));
+
+    const rows = workers.map(w => {
+      const project = projectById.get(w.project_id);
+      return {
+        id: w.id, emp_id: w.emp_id, name: w.name,
+        current_status: w.current_status, last_ping_at: w.last_ping_at,
+        project_name: project ? project.project_name : null,
+        project_code: project ? project.project_code : null
+      };
+    }).sort((a, b) => (a.current_status === b.current_status ? a.name.localeCompare(b.name) : (a.current_status === 'IN' ? -1 : 1)));
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-// ---------- Raw event log (unchanged) ----------
-router.get('/logs', (req, res) => {
-  const { worker_id, date } = req.query;
-  const projectId = scopedProjectId(req, req.query.project_id);
-  let logs = store.findAll('attendance_logs');
-  if (projectId) logs = logs.filter(l => l.project_id === projectId);
-  if (worker_id) logs = logs.filter(l => l.worker_id === Number(worker_id));
-  if (date) logs = logs.filter(l => (l.event_time || '').startsWith(date));
+// ---------- Raw event log ----------
+router.get('/logs', async (req, res) => {
+  try {
+    const { worker_id, date } = req.query;
+    const projectId = scopedProjectId(req, req.query.project_id);
+    let logs = await store.findAll('attendance_logs');
+    if (projectId) logs = logs.filter(l => l.project_id === projectId);
+    if (worker_id) logs = logs.filter(l => l.worker_id === Number(worker_id));
+    if (date) logs = logs.filter(l => (l.event_time || '').startsWith(date));
 
-  logs = logs.sort((a, b) => (a.event_time < b.event_time ? 1 : -1)).slice(0, 500);
+    logs = logs.sort((a, b) => (a.event_time < b.event_time ? 1 : -1)).slice(0, 500);
 
-  const rows = logs.map(l => {
-    const worker = store.findOne('workers', w => w.id === l.worker_id);
-    const project = store.findOne('projects', p => p.id === l.project_id);
-    return {
-      ...l,
-      emp_id: worker ? worker.emp_id : null,
-      name: worker ? worker.name : null,
-      project_name: project ? project.project_name : null,
-      project_code: project ? project.project_code : null
-    };
-  });
-  res.json(rows);
+    const workers = await store.findAll('workers');
+    const projects = await store.findAll('projects');
+    const workerById = new Map(workers.map(w => [w.id, w]));
+    const projectById = new Map(projects.map(p => [p.id, p]));
+
+    const rows = logs.map(l => {
+      const worker = workerById.get(l.worker_id);
+      const project = projectById.get(l.project_id);
+      return {
+        ...l,
+        emp_id: worker ? worker.emp_id : null,
+        name: worker ? worker.name : null,
+        project_name: project ? project.project_name : null,
+        project_code: project ? project.project_code : null
+      };
+    });
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ---------- Daily summary: Present / Absent / Late / Total ----------
-router.get('/daily-summary', (req, res) => {
-  const { date } = req.query;
-  const projectId = scopedProjectId(req, req.query.project_id);
-  const dateStr = date || todayStr();
-  const workers = filteredWorkers(projectId);
-  const allLogs = store.findAll('attendance_logs');
+router.get('/daily-summary', async (req, res) => {
+  try {
+    const { date } = req.query;
+    const projectId = scopedProjectId(req, req.query.project_id);
+    const dateStr = date || todayStr();
+    const allWorkers = await store.findAll('workers');
+    const workers = filterWorkers(allWorkers, projectId);
+    const allLogs = await store.findAll('attendance_logs');
+    const projects = await store.findAll('projects');
+    const projectById = new Map(projects.map(p => [p.id, p]));
 
-  const records = workers
-    .filter(w => {
-      const workerStartDate = (w.created_at || '').slice(0, 10);
-      return !workerStartDate || dateStr >= workerStartDate;
-    })
-    .map(w => {
-      const project = store.findOne('projects', p => p.id === w.project_id);
-      return buildDayRecord(w, project, dateStr, allLogs);
+    const records = workers
+      .filter(w => {
+        const workerStartDate = (w.created_at || '').slice(0, 10);
+        return !workerStartDate || dateStr >= workerStartDate;
+      })
+      .map(w => buildDayRecord(w, projectById.get(w.project_id), dateStr, allLogs));
+
+    res.json({
+      date: dateStr,
+      present: records.filter(r => r.status === 'Present').length,
+      late: records.filter(r => r.status === 'Late').length,
+      absent: records.filter(r => r.status === 'Absent').length,
+      total: workers.length
     });
-
-  res.json({
-    date: dateStr,
-    present: records.filter(r => r.status === 'Present').length,
-    late: records.filter(r => r.status === 'Late').length,
-    absent: records.filter(r => r.status === 'Absent').length,
-    total: workers.length
-  });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ---------- Monthly report: pie breakdown + daily trend + records table ----------
-router.get('/monthly', (req, res) => {
-  const { month, year } = req.query;
-  const projectId = scopedProjectId(req, req.query.project_id);
-  const now = new Date();
-  const y = Number(year) || now.getFullYear();
-  const m = Number(month) || (now.getMonth() + 1); // 1-indexed
-  const workers = filteredWorkers(projectId);
-  const allLogs = store.findAll('attendance_logs');
+router.get('/monthly', async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const projectId = scopedProjectId(req, req.query.project_id);
+    const now = new Date();
+    const y = Number(year) || now.getFullYear();
+    const m = Number(month) || (now.getMonth() + 1);
+    const allWorkers = await store.findAll('workers');
+    const workers = filterWorkers(allWorkers, projectId);
+    const allLogs = await store.findAll('attendance_logs');
+    const projects = await store.findAll('projects');
+    const projectById = new Map(projects.map(p => [p.id, p]));
 
-  const totalDays = daysInMonth(y, m);
-  const todayIso = todayStr();
-  const lastDay = (`${y}-${String(m).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}` > todayIso)
-    ? Number(todayIso.slice(8, 10)) : totalDays; // don't project future days if it's the current month
+    const lastDay = lastDayOfMonth(y, m);
+    let present = 0, late = 0, absent = 0;
+    const dailyTrend = [];
+    const records = [];
 
-  let present = 0, late = 0, absent = 0;
-  const dailyTrend = [];
-  const records = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      let attendedToday = 0;
+      for (const w of workers) {
+        const workerStartDate = (w.created_at || '').slice(0, 10);
+        if (workerStartDate && dateStr < workerStartDate) continue;
 
-  for (let d = 1; d <= lastDay; d++) {
-    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    let attendedToday = 0;
-    for (const w of workers) {
-      // Don't count days before this worker even existed in the system as "Absent"
-      const workerStartDate = (w.created_at || '').slice(0, 10);
-      if (workerStartDate && dateStr < workerStartDate) continue;
-
-      const project = store.findOne('projects', p => p.id === w.project_id);
-      const rec = buildDayRecord(w, project, dateStr, allLogs);
-      if (rec.status === 'Present') present++;
-      else if (rec.status === 'Late') late++;
-      else absent++;
-      if (rec.status !== 'Absent') {
-        attendedToday++;
-        records.push(rec);
+        const rec = buildDayRecord(w, projectById.get(w.project_id), dateStr, allLogs);
+        if (rec.status === 'Present') present++;
+        else if (rec.status === 'Late') late++;
+        else absent++;
+        if (rec.status !== 'Absent') {
+          attendedToday++;
+          records.push(rec);
+        }
       }
+      dailyTrend.push({ date: dateStr, count: attendedToday });
     }
-    dailyTrend.push({ date: dateStr, count: attendedToday });
+
+    records.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    res.json({
+      year: y, month: m,
+      summary: { present, late, absent },
+      daily_trend: dailyTrend,
+      records: records.slice(0, 500)
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
   }
-
-  records.sort((a, b) => (a.date < b.date ? 1 : -1));
-
-  res.json({
-    year: y, month: m,
-    summary: { present, late, absent },
-    daily_trend: dailyTrend,
-    records: records.slice(0, 500)
-  });
 });
 
 // ---------- Full history: searchable, date-filterable attendance records ----------
-router.get('/history', (req, res) => {
-  const { search, date, limit } = req.query;
-  const projectId = scopedProjectId(req, req.query.project_id);
-  const workers = filteredWorkers(projectId, search);
-  const allLogs = store.findAll('attendance_logs');
+router.get('/history', async (req, res) => {
+  try {
+    const { search, date, limit } = req.query;
+    const projectId = scopedProjectId(req, req.query.project_id);
+    const allWorkers = await store.findAll('workers');
+    const workers = filterWorkers(allWorkers, projectId, search);
+    const allLogs = await store.findAll('attendance_logs');
+    const projects = await store.findAll('projects');
+    const projectById = new Map(projects.map(p => [p.id, p]));
 
-  let dates;
-  if (date) {
-    dates = [date];
-  } else {
-    const distinctDates = [...new Set(allLogs.map(l => (l.event_time || '').slice(0, 10)))].filter(Boolean);
-    dates = distinctDates.sort().reverse().slice(0, 14);
-  }
-
-  const records = [];
-  for (const dateStr of dates) {
-    for (const w of workers) {
-      const project = store.findOne('projects', p => p.id === w.project_id);
-      const rec = buildDayRecord(w, project, dateStr, allLogs);
-      if (rec.status !== 'Absent') records.push(rec);
+    let dates;
+    if (date) {
+      dates = [date];
+    } else {
+      const distinctDates = [...new Set(allLogs.map(l => (l.event_time || '').slice(0, 10)))].filter(Boolean);
+      dates = distinctDates.sort().reverse().slice(0, 14);
     }
+
+    const records = [];
+    for (const dateStr of dates) {
+      for (const w of workers) {
+        const rec = buildDayRecord(w, projectById.get(w.project_id), dateStr, allLogs);
+        if (rec.status !== 'Absent') records.push(rec);
+      }
+    }
+    records.sort((a, b) => (a.date < b.date ? 1 : -1));
+    res.json(records.slice(0, Number(limit) || 200));
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
   }
-  records.sort((a, b) => (a.date < b.date ? 1 : -1));
-  res.json(records.slice(0, Number(limit) || 200));
 });
 
 // ---------- CSV export (opens fine in Excel) ----------
@@ -235,94 +264,100 @@ function toCSV(records) {
   return [header, ...rows].join('\n');
 }
 
-router.get('/export', (req, res) => {
-  const { scope, month, year, search, date } = req.query;
-  const projectId = scopedProjectId(req, req.query.project_id);
-  const workers = filteredWorkers(projectId, search);
-  const allLogs = store.findAll('attendance_logs');
-  let records = [];
+router.get('/export', async (req, res) => {
+  try {
+    const { scope, month, year, search, date } = req.query;
+    const projectId = scopedProjectId(req, req.query.project_id);
+    const allWorkers = await store.findAll('workers');
+    const workers = filterWorkers(allWorkers, projectId, search);
+    const allLogs = await store.findAll('attendance_logs');
+    const projects = await store.findAll('projects');
+    const projectById = new Map(projects.map(p => [p.id, p]));
+    let records = [];
 
-  if (scope === 'month') {
-    const now = new Date();
-    const y = Number(year) || now.getFullYear();
-    const m = Number(month) || (now.getMonth() + 1);
-    const totalDays = daysInMonth(y, m);
-    const todayIso = todayStr();
-    const lastDay = (`${y}-${String(m).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}` > todayIso)
-      ? Number(todayIso.slice(8, 10)) : totalDays;
-    for (let d = 1; d <= lastDay; d++) {
-      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      for (const w of workers) {
-        const project = store.findOne('projects', p => p.id === w.project_id);
-        const rec = buildDayRecord(w, project, dateStr, allLogs);
-        if (rec.status !== 'Absent') records.push(rec);
+    if (scope === 'month') {
+      const now = new Date();
+      const y = Number(year) || now.getFullYear();
+      const m = Number(month) || (now.getMonth() + 1);
+      const lastDay = lastDayOfMonth(y, m);
+      for (let d = 1; d <= lastDay; d++) {
+        const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        for (const w of workers) {
+          const rec = buildDayRecord(w, projectById.get(w.project_id), dateStr, allLogs);
+          if (rec.status !== 'Absent') records.push(rec);
+        }
+      }
+    } else {
+      const distinctDates = date ? [date] : [...new Set(allLogs.map(l => (l.event_time || '').slice(0, 10)))].filter(Boolean);
+      for (const dateStr of distinctDates) {
+        for (const w of workers) {
+          const rec = buildDayRecord(w, projectById.get(w.project_id), dateStr, allLogs);
+          if (rec.status !== 'Absent') records.push(rec);
+        }
       }
     }
-  } else {
-    const distinctDates = date ? [date] : [...new Set(allLogs.map(l => (l.event_time || '').slice(0, 10)))].filter(Boolean);
-    for (const dateStr of distinctDates) {
-      for (const w of workers) {
-        const project = store.findOne('projects', p => p.id === w.project_id);
-        const rec = buildDayRecord(w, project, dateStr, allLogs);
-        if (rec.status !== 'Absent') records.push(rec);
-      }
-    }
+
+    records.sort((a, b) => (a.date < b.date ? 1 : -1));
+    const csv = toCSV(records);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="attendance-export.csv"`);
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
   }
-
-  records.sort((a, b) => (a.date < b.date ? 1 : -1));
-  const csv = toCSV(records);
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', `attachment; filename="attendance-export.csv"`);
-  res.send(csv);
 });
 
 // ---------- Salary: gross + allowances calculated by present days in the month ----------
-router.get('/salary', (req, res) => {
-  const { month, year } = req.query;
-  const projectId = scopedProjectId(req, req.query.project_id);
-  const now = new Date();
-  const y = Number(year) || now.getFullYear();
-  const m = Number(month) || (now.getMonth() + 1);
-  const workers = filteredWorkers(projectId);
-  const allLogs = store.findAll('attendance_logs');
+router.get('/salary', async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const projectId = scopedProjectId(req, req.query.project_id);
+    const now = new Date();
+    const y = Number(year) || now.getFullYear();
+    const m = Number(month) || (now.getMonth() + 1);
+    const allWorkers = await store.findAll('workers');
+    const workers = filterWorkers(allWorkers, projectId);
+    const allLogs = await store.findAll('attendance_logs');
+    const projects = await store.findAll('projects');
+    const projectById = new Map(projects.map(p => [p.id, p]));
 
-  const totalDaysInMonth = daysInMonth(y, m);
-  const todayIso = todayStr();
-  const lastDay = (`${y}-${String(m).padStart(2, '0')}-${String(totalDaysInMonth).padStart(2, '0')}` > todayIso)
-    ? Number(todayIso.slice(8, 10)) : totalDaysInMonth;
+    const totalDaysInMonth = daysInMonth(y, m);
+    const lastDay = lastDayOfMonth(y, m);
 
-  const rows = workers.map(w => {
-    const project = store.findOne('projects', p => p.id === w.project_id);
-    const workerStartDate = (w.created_at || '').slice(0, 10);
+    const rows = workers.map(w => {
+      const workerStartDate = (w.created_at || '').slice(0, 10);
+      let presentDays = 0;
+      for (let d = 1; d <= lastDay; d++) {
+        const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        if (workerStartDate && dateStr < workerStartDate) continue;
+        const rec = buildDayRecord(w, projectById.get(w.project_id), dateStr, allLogs);
+        if (rec.status !== 'Absent') presentDays++;
+      }
 
-    let presentDays = 0;
-    for (let d = 1; d <= lastDay; d++) {
-      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      if (workerStartDate && dateStr < workerStartDate) continue;
-      const rec = buildDayRecord(w, project, dateStr, allLogs);
-      if (rec.status !== 'Absent') presentDays++;
-    }
+      const grossSalary = w.gross_salary || 0;
+      const allowances = w.allowances || [];
+      const dailyGrossRate = grossSalary / totalDaysInMonth;
+      const dailyAllowanceTotal = allowances.reduce((sum, a) => sum + (a.amount || 0), 0);
+      const totalSalary = (dailyGrossRate + dailyAllowanceTotal) * presentDays;
+      const project = projectById.get(w.project_id);
 
-    const grossSalary = w.gross_salary || 0;
-    const allowances = w.allowances || [];
-    const dailyGrossRate = grossSalary / totalDaysInMonth;
-    const dailyAllowanceTotal = allowances.reduce((sum, a) => sum + (a.amount || 0), 0);
-    const totalSalary = (dailyGrossRate + dailyAllowanceTotal) * presentDays;
+      return {
+        worker_id: w.id, emp_id: w.emp_id, name: w.name,
+        project_name: project ? project.project_name : null,
+        project_code: project ? project.project_code : null,
+        gross_salary: grossSalary,
+        allowances,
+        daily_allowance_total: Math.round(dailyAllowanceTotal * 100) / 100,
+        present_days: presentDays,
+        total_days_in_month: totalDaysInMonth,
+        total_salary: Math.round(totalSalary * 100) / 100
+      };
+    });
 
-    return {
-      worker_id: w.id, emp_id: w.emp_id, name: w.name,
-      project_name: project ? project.project_name : null,
-      project_code: project ? project.project_code : null,
-      gross_salary: grossSalary,
-      allowances,
-      daily_allowance_total: Math.round(dailyAllowanceTotal * 100) / 100,
-      present_days: presentDays,
-      total_days_in_month: totalDaysInMonth,
-      total_salary: Math.round(totalSalary * 100) / 100
-    };
-  });
-
-  res.json({ year: y, month: m, rows });
+    res.json({ year: y, month: m, rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = router;
