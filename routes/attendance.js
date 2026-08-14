@@ -276,4 +276,53 @@ router.get('/export', (req, res) => {
   res.send(csv);
 });
 
+// ---------- Salary: gross + allowances calculated by present days in the month ----------
+router.get('/salary', (req, res) => {
+  const { month, year } = req.query;
+  const projectId = scopedProjectId(req, req.query.project_id);
+  const now = new Date();
+  const y = Number(year) || now.getFullYear();
+  const m = Number(month) || (now.getMonth() + 1);
+  const workers = filteredWorkers(projectId);
+  const allLogs = store.findAll('attendance_logs');
+
+  const totalDaysInMonth = daysInMonth(y, m);
+  const todayIso = todayStr();
+  const lastDay = (`${y}-${String(m).padStart(2, '0')}-${String(totalDaysInMonth).padStart(2, '0')}` > todayIso)
+    ? Number(todayIso.slice(8, 10)) : totalDaysInMonth;
+
+  const rows = workers.map(w => {
+    const project = store.findOne('projects', p => p.id === w.project_id);
+    const workerStartDate = (w.created_at || '').slice(0, 10);
+
+    let presentDays = 0;
+    for (let d = 1; d <= lastDay; d++) {
+      const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (workerStartDate && dateStr < workerStartDate) continue;
+      const rec = buildDayRecord(w, project, dateStr, allLogs);
+      if (rec.status !== 'Absent') presentDays++;
+    }
+
+    const grossSalary = w.gross_salary || 0;
+    const allowances = w.allowances || [];
+    const dailyGrossRate = grossSalary / totalDaysInMonth;
+    const dailyAllowanceTotal = allowances.reduce((sum, a) => sum + (a.amount || 0), 0);
+    const totalSalary = (dailyGrossRate + dailyAllowanceTotal) * presentDays;
+
+    return {
+      worker_id: w.id, emp_id: w.emp_id, name: w.name,
+      project_name: project ? project.project_name : null,
+      project_code: project ? project.project_code : null,
+      gross_salary: grossSalary,
+      allowances,
+      daily_allowance_total: Math.round(dailyAllowanceTotal * 100) / 100,
+      present_days: presentDays,
+      total_days_in_month: totalDaysInMonth,
+      total_salary: Math.round(totalSalary * 100) / 100
+    };
+  });
+
+  res.json({ year: y, month: m, rows });
+});
+
 module.exports = router;

@@ -25,7 +25,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { emp_id, name, phone } = req.body;
+  const { emp_id, name, phone, gross_salary, allowances } = req.body;
   const project_id = scopedProjectId(req, req.body.project_id);
   if (!emp_id || !name || !project_id) {
     return res.status(400).json({ error: 'emp_id, name and project_id are required' });
@@ -36,13 +36,22 @@ router.post('/', (req, res) => {
   const dup = store.findOne('workers', w => w.emp_id === emp_id);
   if (dup) return res.status(400).json({ error: 'Employee ID already exists' });
 
+  // Allowances: array of { name, amount } — e.g. Travel ₹100/day, Food ₹80/day
+  const cleanAllowances = Array.isArray(allowances)
+    ? allowances
+        .filter(a => a && a.name && a.amount != null && a.amount !== '')
+        .map(a => ({ name: String(a.name).trim(), amount: Number(a.amount) || 0 }))
+    : [];
+
   const device_token = crypto.randomBytes(16).toString('hex');
   const worker = store.insert('workers', {
     emp_id, name, phone: phone || null,
     project_id: Number(project_id),
     device_token,
     current_status: 'OUT',
-    last_ping_at: null
+    last_ping_at: null,
+    gross_salary: Number(gross_salary) || 0,
+    allowances: cleanAllowances
   });
   res.json({ id: worker.id, device_token });
 });
@@ -59,11 +68,17 @@ router.put('/:id', (req, res) => {
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
   if (!assertOwnership(req, worker)) return res.status(403).json({ error: 'Access denied' });
 
-  const { name, phone, project_id } = req.body;
+  const { name, phone, project_id, gross_salary, allowances } = req.body;
   const changes = {};
   if (name != null) changes.name = name;
   if (phone != null) changes.phone = phone;
   if (project_id != null && req.admin.role === 'it') changes.project_id = Number(project_id);
+  if (gross_salary != null) changes.gross_salary = Number(gross_salary) || 0;
+  if (Array.isArray(allowances)) {
+    changes.allowances = allowances
+      .filter(a => a && a.name && a.amount != null && a.amount !== '')
+      .map(a => ({ name: String(a.name).trim(), amount: Number(a.amount) || 0 }));
+  }
 
   store.updateById('workers', req.params.id, changes);
   res.json({ success: true });

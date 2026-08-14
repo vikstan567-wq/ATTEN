@@ -297,6 +297,21 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
   border-radius:12px; font-size:13px; box-shadow: var(--pressed-sm); flex:1;
 }
 
+/* ---------- New: allowance rows ---------- */
+.allowance-row{ display:flex; gap:8px; margin-top:8px; align-items:center; }
+.allowance-row input{
+  margin-top:0 !important; background:var(--base); border:none; color:var(--paper);
+  padding:10px 12px; border-radius:12px; box-shadow: var(--pressed-sm); font-size:13px;
+}
+.allowance-row input.allowance-name{ flex:1.3; }
+.allowance-row input.allowance-amount{ flex:1; }
+.allowance-row .remove-allowance{
+  background:none; border:none; color:var(--red); cursor:pointer; font-size:18px;
+  width:28px; height:28px; flex-shrink:0;
+}
+.salary-summary-row{ display:flex; gap:16px; font-size:12px; color:var(--concrete); margin-top:6px; }
+.salary-total{ font-family:var(--font-mono); color:var(--green); font-weight:600; }
+
 @media (max-width: 720px){
   .topbar{ flex-direction:column; gap:10px; }
   .content{ padding:16px; }
@@ -352,6 +367,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <button class="tab" data-tab="history">Full History</button>
       <button class="tab" data-tab="projects">Projects</button>
       <button class="tab" data-tab="workers">Employees</button>
+      <button class="tab" data-tab="salary">Salary</button>
       <button class="tab" data-tab="logs">Logs</button>
     </nav>
     <button id="logoutBtn" class="btn-ghost">Logout</button>
@@ -453,6 +469,24 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       </div>
     </section>
 
+    <!-- SALARY -->
+    <section id="tab-salary" class="panel">
+      <div class="panel-head">
+        <h1>Salary</h1>
+        <div class="filter-row">
+          <select id="salaryMonth"></select>
+          <select id="salaryYear"></select>
+          <select id="salaryProjectFilter" class="project-scope-filter"><option value="">All Projects</option></select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="salaryTable">
+          <thead><tr><th>Employee</th><th>Emp ID</th><th>Gross</th><th>Allowances/day</th><th>Present Days</th><th>Total Salary</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- LOGS -->
     <section id="tab-logs" class="panel">
       <div class="panel-head">
@@ -531,6 +565,14 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <input type="text" id="workerPhone">
       <label>Assign Project</label>
       <select id="workerProject" required></select>
+
+      <label>Gross Salary (monthly, ₹)</label>
+      <input type="number" id="workerGrossSalary" min="0" step="any" placeholder="e.g. 18000">
+
+      <label>Allowances (per day, ₹)</label>
+      <div id="allowanceRows"></div>
+      <button type="button" class="btn-ghost" id="addAllowanceBtn" style="width:100%; margin-top:8px;">+ Add Allowance</button>
+
       <div class="form-error" id="workerError"></div>
       <button type="submit" class="btn-primary full">Add Worker</button>
     </form>
@@ -644,6 +686,7 @@ document.querySelectorAll('.tab').forEach(btn => {
     if (btn.dataset.tab === 'logs') loadLogs();
     if (btn.dataset.tab === 'dashboard') loadDashboard();
     if (btn.dataset.tab === 'monthly') loadMonthly();
+    if (btn.dataset.tab === 'salary') loadSalary();
     if (btn.dataset.tab === 'history') loadHistory();
   });
 });
@@ -844,6 +887,7 @@ async function loadProjects() {
   document.getElementById('dashProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
   document.getElementById('logProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
   document.getElementById('monthlyProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
+  document.getElementById('salaryProjectFilter').innerHTML = '<option value="">All Projects</option>' + opts;
   document.getElementById('workerProject').innerHTML = opts;
 }
 
@@ -998,8 +1042,30 @@ async function loadWorkers() {
 document.getElementById('newWorkerBtn').addEventListener('click', () => {
   document.getElementById('workerForm').reset();
   document.getElementById('workerError').textContent = '';
+  document.getElementById('allowanceRows').innerHTML = '';
+  addAllowanceRow(); // start with one empty row for convenience
   document.getElementById('workerModal').classList.add('show');
 });
+
+function addAllowanceRow(name = '', amount = '') {
+  const row = document.createElement('div');
+  row.className = 'allowance-row';
+  row.innerHTML = `
+    <input type="text" class="allowance-name" placeholder="e.g. Travel" value="${name}">
+    <input type="number" class="allowance-amount" placeholder="₹/day" min="0" step="any" value="${amount}">
+    <button type="button" class="remove-allowance" title="Remove">&times;</button>
+  `;
+  row.querySelector('.remove-allowance').addEventListener('click', () => row.remove());
+  document.getElementById('allowanceRows').appendChild(row);
+}
+document.getElementById('addAllowanceBtn').addEventListener('click', () => addAllowanceRow());
+
+function collectAllowances() {
+  return Array.from(document.querySelectorAll('#allowanceRows .allowance-row')).map(row => ({
+    name: row.querySelector('.allowance-name').value.trim(),
+    amount: Number(row.querySelector('.allowance-amount').value) || 0
+  })).filter(a => a.name);
+}
 
 document.getElementById('workerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1007,7 +1073,9 @@ document.getElementById('workerForm').addEventListener('submit', async (e) => {
     emp_id: document.getElementById('workerEmpId').value,
     name: document.getElementById('workerName').value,
     phone: document.getElementById('workerPhone').value,
-    project_id: Number(document.getElementById('workerProject').value)
+    project_id: Number(document.getElementById('workerProject').value),
+    gross_salary: Number(document.getElementById('workerGrossSalary').value) || 0,
+    allowances: collectAllowances()
   };
   try {
     const res = await api('/workers', { method: 'POST', body: JSON.stringify(payload) });
@@ -1019,6 +1087,40 @@ document.getElementById('workerForm').addEventListener('submit', async (e) => {
     document.getElementById('workerError').textContent = err.message;
   }
 });
+
+// ---------- SALARY ----------
+(function populateSalaryMonthYear() {
+  const now = new Date();
+  const monthSel = document.getElementById('salaryMonth');
+  monthSel.innerHTML = MONTH_NAMES.map((mn, i) => `<option value="${i+1}">${mn}</option>`).join('');
+  monthSel.value = now.getMonth() + 1;
+  const yearSel = document.getElementById('salaryYear');
+  const thisYear = now.getFullYear();
+  yearSel.innerHTML = [thisYear, thisYear - 1].map(y => `<option value="${y}">${y}</option>`).join('');
+})();
+
+async function loadSalary() {
+  const month = document.getElementById('salaryMonth').value;
+  const year = document.getElementById('salaryYear').value;
+  const projectId = document.getElementById('salaryProjectFilter').value;
+  const params = new URLSearchParams({ month, year });
+  if (projectId) params.set('project_id', projectId);
+  const data = await api('/attendance/salary?' + params.toString());
+
+  document.querySelector('#salaryTable tbody').innerHTML = data.rows.map(r => `
+    <tr>
+      <td class="name-cell">${r.name}</td>
+      <td>${r.emp_id}</td>
+      <td>₹${r.gross_salary.toLocaleString('en-IN')}</td>
+      <td>${r.allowances.length ? r.allowances.map(a => `${a.name}: ₹${a.amount}`).join(', ') : '—'}</td>
+      <td>${r.present_days} / ${r.total_days_in_month}</td>
+      <td class="salary-total">₹${r.total_salary.toLocaleString('en-IN')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">No workers found</td></tr>`;
+}
+document.getElementById('salaryMonth').addEventListener('change', loadSalary);
+document.getElementById('salaryYear').addEventListener('change', loadSalary);
+document.getElementById('salaryProjectFilter').addEventListener('change', loadSalary);
 
 async function resetToken(id) {
   const res = await api(`/workers/${id}/reset-token`, { method: 'POST' });
