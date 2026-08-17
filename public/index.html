@@ -477,6 +477,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
           <select id="salaryMonth"></select>
           <select id="salaryYear"></select>
           <select id="salaryProjectFilter" class="project-scope-filter"><option value="">All Projects</option></select>
+          <button class="btn-export" id="salaryExportBtn">⬇ Excel</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -1099,6 +1100,7 @@ document.getElementById('workerForm').addEventListener('submit', async (e) => {
   yearSel.innerHTML = [thisYear, thisYear - 1].map(y => `<option value="${y}">${y}</option>`).join('');
 })();
 
+let currentSalaryData = [];
 async function loadSalary() {
   const month = document.getElementById('salaryMonth').value;
   const year = document.getElementById('salaryYear').value;
@@ -1106,6 +1108,7 @@ async function loadSalary() {
   const params = new URLSearchParams({ month, year });
   if (projectId) params.set('project_id', projectId);
   const data = await api('/attendance/salary?' + params.toString());
+  currentSalaryData = data.rows;
 
   document.querySelector('#salaryTable tbody').innerHTML = data.rows.map(r => `
     <tr>
@@ -1121,6 +1124,25 @@ async function loadSalary() {
 document.getElementById('salaryMonth').addEventListener('change', loadSalary);
 document.getElementById('salaryYear').addEventListener('change', loadSalary);
 document.getElementById('salaryProjectFilter').addEventListener('change', loadSalary);
+
+document.getElementById('salaryExportBtn').addEventListener('click', () => {
+  if (!currentSalaryData.length) { alert('No data to export'); return; }
+  const header = 'Employee,Emp ID,Project,Gross Salary,Allowances/day,Present Days,Total Days,Total Salary';
+  const rows = currentSalaryData.map(r => [
+    r.name, r.emp_id, r.project_code || '',
+    r.gross_salary,
+    r.allowances.map(a => `${a.name}: ₹${a.amount}`).join('; '),
+    r.present_days, r.total_days_in_month, r.total_salary
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const month = document.getElementById('salaryMonth').selectedOptions[0].textContent;
+  const year = document.getElementById('salaryYear').value;
+  a.download = `salary-${month}-${year}.csv`;
+  a.click();
+});
 
 async function resetToken(id) {
   const res = await api(`/workers/${id}/reset-token`, { method: 'POST' });
