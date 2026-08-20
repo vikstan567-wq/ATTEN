@@ -105,6 +105,7 @@ input, select, button{ font-family: var(--font-body); }
 }
 .btn-ghost:hover{ color:var(--amber); }
 .btn-ghost:active{ box-shadow: var(--pressed-sm); }
+.btn-ghost.full{ width:100%; }
 
 /* ---------- App shell ---------- */
 .topbar{
@@ -546,6 +547,7 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
       <input type="number" id="projectRadius" value="500" min="10" required>
       <div class="form-error" id="projectError"></div>
       <button type="submit" class="btn-primary full">Save Project</button>
+      <button type="button" class="btn-ghost full" id="deleteProjectBtn" style="display:none; margin-top:10px; color:var(--red);">Delete Project</button>
     </form>
   </div>
 </div>
@@ -908,9 +910,32 @@ function openProjectModal(id) {
   document.getElementById('projectLng').value = lng;
   document.getElementById('projectError').textContent = '';
 
+  const deleteBtn = document.getElementById('deleteProjectBtn');
+  deleteBtn.style.display = project ? 'block' : 'none';
+
   document.getElementById('projectModal').classList.add('show');
   setTimeout(() => initProjectMap(lat, lng, document.getElementById('projectRadius').value), 50);
 }
+
+document.getElementById('deleteProjectBtn').addEventListener('click', async () => {
+  const id = document.getElementById('projectId').value;
+  const project = allProjects.find(p => p.id === Number(id));
+  if (!project) return;
+
+  if (project.worker_count > 0) {
+    document.getElementById('projectError').textContent = `Cannot delete — ${project.worker_count} employee(s) are still assigned to this project. Remove or reassign them first.`;
+    return;
+  }
+  if (!confirm(`Delete project "${project.project_name}" (${project.project_code})? This cannot be undone.`)) return;
+
+  try {
+    await api(`/projects/${id}`, { method: 'DELETE' });
+    closeModal('projectModal');
+    loadProjects();
+  } catch (err) {
+    document.getElementById('projectError').textContent = err.message;
+  }
+});
 
 function initProjectMap(lat, lng, radius) {
   if (projectMap) { projectMap.remove(); projectMap = null; }
