@@ -137,6 +137,83 @@ router.get('/logs', async (req, res) => {
   }
 });
 
+// ---------- Manual attendance: add / edit / delete raw log entries ----------
+// (used by the hidden "manual attendance" panel, PIN-gated on the frontend)
+router.post('/logs', async (req, res) => {
+  try {
+    const { worker_id, event_type, date, time } = req.body;
+    if (!worker_id || !event_type || !date || !time) {
+      return res.status(400).json({ error: 'worker_id, event_type, date and time are required' });
+    }
+    if (event_type !== 'IN' && event_type !== 'OUT') {
+      return res.status(400).json({ error: 'event_type must be IN or OUT' });
+    }
+    const worker = await store.findOne('workers', w => w.id === Number(worker_id));
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    if (req.admin.role === 'admin' && worker.project_id !== req.admin.project_id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const event_time = `${date} ${time}:00`;
+    const log = await store.insert('attendance_logs', {
+      worker_id: worker.id,
+      project_id: worker.project_id,
+      event_type,
+      latitude: null,
+      longitude: null,
+      distance_meters: null,
+      event_time,
+      manual: true
+    });
+
+    // If this is the latest known event for the worker, also update their live status
+    const allLogs = await store.findAll('attendance_logs', l => l.worker_id === worker.id);
+    const latest = allLogs.sort((a, b) => (a.event_time > b.event_time ? -1 : 1))[0];
+    if (latest && latest.id === log.id) {
+      await store.updateById('workers', worker.id, { current_status: event_type, last_ping_at: store.nowISO() });
+    }
+
+    res.json({ id: log.id });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/logs/:id', async (req, res) => {
+  try {
+    const log = await store.findOne('attendance_logs', l => l.id === Number(req.params.id));
+    if (!log) return res.status(404).json({ error: 'Log entry not found' });
+    if (req.admin.role === 'admin' && log.project_id !== req.admin.project_id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { event_type, date, time } = req.body;
+    const changes = {};
+    if (event_type === 'IN' || event_type === 'OUT') changes.event_type = event_type;
+    if (date && time) changes.event_time = `${date} ${time}:00`;
+    changes.manual = true;
+
+    await store.updateById('attendance_logs', req.params.id, changes);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/logs/:id', async (req, res) => {
+  try {
+    const log = await store.findOne('attendance_logs', l => l.id === Number(req.params.id));
+    if (!log) return res.status(404).json({ error: 'Log entry not found' });
+    if (req.admin.role === 'admin' && log.project_id !== req.admin.project_id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    await store.deleteWhere('attendance_logs', l => l.id === Number(req.params.id));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ---------- Daily summary: Present / Absent / Late / Total ----------
 router.get('/daily-summary', async (req, res) => {
   try {

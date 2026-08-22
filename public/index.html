@@ -313,6 +313,13 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
 .salary-summary-row{ display:flex; gap:16px; font-size:12px; color:var(--concrete); margin-top:6px; }
 .salary-total{ font-family:var(--font-mono); color:var(--green); font-weight:600; }
 
+/* ---------- Hidden admin unlock icon: tiny, barely visible, bottom-right corner ---------- */
+#hiddenAdminIcon{
+  position:fixed; bottom:6px; right:8px; font-size:9px; color:var(--base);
+  opacity:0.4; cursor:pointer; user-select:none; z-index:50; line-height:1; padding:6px;
+}
+#hiddenAdminIcon:hover{ color:var(--concrete); }
+
 @media (max-width: 720px){
   .topbar{ flex-direction:column; gap:10px; }
   .content{ padding:16px; }
@@ -496,11 +503,12 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
         <div class="filter-row">
           <select id="logProjectFilter" class="project-scope-filter"><option value="">All Projects</option></select>
           <input type="date" id="logDateFilter">
+          <button class="btn-primary" id="manualAttendanceBtn" style="display:none; margin-top:0;">+ Manual Attendance</button>
         </div>
       </div>
       <div class="table-wrap">
         <table id="logTable">
-          <thead><tr><th>Time</th><th>Emp ID</th><th>Name</th><th>Project</th><th>Event</th><th>Distance</th></tr></thead>
+          <thead><tr><th>Time</th><th>Emp ID</th><th>Name</th><th>Project</th><th>Event</th><th>Distance</th><th id="logActionsHeader" style="display:none"></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -508,6 +516,9 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
 
   </main>
 </div>
+
+<!-- Hidden admin unlock icon — tiny, unobtrusive -->
+<span id="hiddenAdminIcon" title="">•</span>
 
 <!-- ===== PROJECT MODAL ===== -->
 <div id="projectModal" class="modal-overlay">
@@ -593,6 +604,32 @@ tr:hover td{ background:rgba(255,255,255,0.02); }
     <div class="token-box" id="tokenValue"></div>
     <button class="btn-primary full" id="copyTokenBtn">Copy Link</button>
     <button class="btn-ghost full" id="shareTokenBtn" style="margin-top:10px; width:100%;">Send via WhatsApp</button>
+  </div>
+</div>
+
+<!-- ===== MANUAL ATTENDANCE MODAL ===== -->
+<div id="manualAttModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="manualAttTitle">Add Manual Attendance</h2>
+      <button class="modal-close" data-close="manualAttModal">&times;</button>
+    </div>
+    <form id="manualAttForm">
+      <input type="hidden" id="manualAttLogId">
+      <label>Employee</label>
+      <select id="manualAttWorker" required></select>
+      <label>Event</label>
+      <select id="manualAttEvent" required>
+        <option value="IN">IN</option>
+        <option value="OUT">OUT</option>
+      </select>
+      <div class="coord-row">
+        <div><label>Date</label><input type="date" id="manualAttDate" required></div>
+        <div><label>Time</label><input type="time" id="manualAttTime" required></div>
+      </div>
+      <div class="form-error" id="manualAttError"></div>
+      <button type="submit" class="btn-primary full">Save</button>
+    </form>
   </div>
 </div>
 
@@ -1048,9 +1085,10 @@ document.getElementById('projectForm').addEventListener('submit', async (e) => {
 });
 
 // ---------- WORKERS ----------
+let allWorkers = [];
 async function loadWorkers() {
-  const workers = await api('/workers');
-  document.querySelector('#workerTable tbody').innerHTML = workers.map(w => `
+  allWorkers = await api('/workers');
+  document.querySelector('#workerTable tbody').innerHTML = allWorkers.map(w => `
     <tr>
       <td>${w.emp_id}</td>
       <td class="name-cell">${w.name}</td>
@@ -1198,6 +1236,7 @@ document.getElementById('shareTokenBtn').addEventListener('click', () => {
 });
 
 // ---------- LOGS ----------
+let currentLogsData = [];
 async function loadLogs() {
   const projectId = document.getElementById('logProjectFilter').value;
   const date = document.getElementById('logDateFilter').value;
@@ -1205,6 +1244,7 @@ async function loadLogs() {
   if (projectId) params.set('project_id', projectId);
   if (date) params.set('date', date);
   const rows = await api('/attendance/logs?' + params.toString());
+  currentLogsData = rows;
   document.querySelector('#logTable tbody').innerHTML = rows.map(r => `
     <tr>
       <td>${r.event_time}</td>
@@ -1212,12 +1252,94 @@ async function loadLogs() {
       <td class="name-cell">${r.name}</td>
       <td>${r.project_code}</td>
       <td><span class="status-pill ${r.event_type}">${r.event_type}</span></td>
-      <td>${r.distance_meters}m</td>
+      <td>${r.distance_meters != null ? r.distance_meters + 'm' : '—'}</td>
+      ${adminUnlocked ? `<td>
+        <button class="link-btn" onclick="editLogEntry(${r.id})">Edit</button>
+        <button class="danger-btn" onclick="deleteLogEntry(${r.id})">Delete</button>
+      </td>` : ''}
     </tr>
-  `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--concrete)">No logs found</td></tr>`;
+  `).join('') || `<tr><td colspan="${adminUnlocked ? 7 : 6}" style="text-align:center;color:var(--concrete)">No logs found</td></tr>`;
 }
 document.getElementById('logProjectFilter').addEventListener('change', loadLogs);
 document.getElementById('logDateFilter').addEventListener('change', loadLogs);
+
+// ---------- Hidden admin unlock (manual attendance add/edit/delete) ----------
+let adminUnlocked = false;
+document.getElementById('hiddenAdminIcon').addEventListener('click', () => {
+  if (adminUnlocked) return; // already unlocked, nothing to do
+  const code = prompt('Enter code:');
+  if (code === '0113') {
+    adminUnlocked = true;
+    document.getElementById('manualAttendanceBtn').style.display = 'inline-block';
+    document.getElementById('logActionsHeader').style.display = 'table-cell';
+    loadLogs();
+  } else if (code !== null) {
+    alert('Incorrect code.');
+  }
+});
+
+document.getElementById('manualAttendanceBtn').addEventListener('click', () => openManualAttModal(null));
+
+function openManualAttModal(log) {
+  document.getElementById('manualAttTitle').textContent = log ? 'Edit Attendance' : 'Add Manual Attendance';
+  document.getElementById('manualAttLogId').value = log ? log.id : '';
+  document.getElementById('manualAttWorker').innerHTML = allWorkers.map(w =>
+    `<option value="${w.id}">${w.emp_id} — ${w.name} (${w.project_code})</option>`
+  ).join('');
+  if (log) {
+    document.getElementById('manualAttWorker').value = log.worker_id;
+    document.getElementById('manualAttWorker').disabled = true;
+    document.getElementById('manualAttEvent').value = log.event_type;
+    document.getElementById('manualAttDate').value = log.event_time.slice(0, 10);
+    document.getElementById('manualAttTime').value = log.event_time.slice(11, 16);
+  } else {
+    document.getElementById('manualAttForm').reset();
+    document.getElementById('manualAttWorker').disabled = false;
+    const now = new Date();
+    document.getElementById('manualAttDate').value = now.toISOString().slice(0, 10);
+    document.getElementById('manualAttTime').value = now.toTimeString().slice(0, 5);
+  }
+  document.getElementById('manualAttError').textContent = '';
+  document.getElementById('manualAttModal').classList.add('show');
+}
+
+function editLogEntry(id) {
+  const log = currentLogsData.find(l => l.id === id);
+  if (log) openManualAttModal(log);
+}
+
+async function deleteLogEntry(id) {
+  if (!confirm('Delete this attendance entry? This cannot be undone.')) return;
+  try {
+    await api(`/attendance/logs/${id}`, { method: 'DELETE' });
+    loadLogs();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('manualAttForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const logId = document.getElementById('manualAttLogId').value;
+  const payload = {
+    worker_id: Number(document.getElementById('manualAttWorker').value),
+    event_type: document.getElementById('manualAttEvent').value,
+    date: document.getElementById('manualAttDate').value,
+    time: document.getElementById('manualAttTime').value
+  };
+  try {
+    if (logId) {
+      await api(`/attendance/logs/${logId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/attendance/logs', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    closeModal('manualAttModal');
+    loadLogs();
+    loadDashboard();
+  } catch (err) {
+    document.getElementById('manualAttError').textContent = err.message;
+  }
+});
 
 // ---------- modal helpers ----------
 document.querySelectorAll('.modal-close').forEach(btn => {
