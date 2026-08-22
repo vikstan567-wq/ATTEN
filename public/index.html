@@ -1273,17 +1273,28 @@ document.getElementById('logDateFilter').addEventListener('change', loadLogs);
 // ---------- Hidden admin unlock (manual attendance add/edit/delete) ----------
 let adminUnlocked = false;
 document.getElementById('hiddenAdminIcon').addEventListener('click', () => {
-  if (adminUnlocked) return; // already unlocked, nothing to do
+  if (adminUnlocked) {
+    goToLogsTab();
+    return;
+  }
   const code = prompt('Enter code:');
   if (code === '0113') {
     adminUnlocked = true;
     document.getElementById('manualAttendanceBtn').style.display = 'inline-block';
     document.getElementById('logActionsHeader').style.display = 'table-cell';
-    loadLogs();
+    goToLogsTab();
   } else if (code !== null) {
     alert('Incorrect code.');
   }
 });
+
+function goToLogsTab() {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-tab="logs"]').classList.add('active');
+  document.getElementById('tab-logs').classList.add('active');
+  loadLogs();
+}
 
 document.getElementById('manualAttendanceBtn').addEventListener('click', () => openManualAttModal(null));
 
