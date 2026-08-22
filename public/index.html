@@ -1096,7 +1096,8 @@ async function loadWorkers() {
       <td>${w.project_code}</td>
       <td><span class="status-pill ${w.current_status}">${w.current_status}</span></td>
       <td>
-        <button class="link-btn" onclick="resetToken(${w.id})">View Token</button>
+        <button class="link-btn" onclick="viewToken(${w.id})">View Token</button>
+        <button class="link-btn" onclick="resetToken(${w.id})" title="Only use this if the worker lost their phone/link — it invalidates the old one">Reset</button>
         <button class="danger-btn" onclick="deleteWorker(${w.id})">Remove</button>
       </td>
     </tr>
@@ -1207,7 +1208,13 @@ document.getElementById('salaryExportBtn').addEventListener('click', () => {
   a.click();
 });
 
+function viewToken(id) {
+  const worker = allWorkers.find(w => w.id === id);
+  if (worker) showToken(worker.device_token);
+}
+
 async function resetToken(id) {
+  if (!confirm('Reset this worker\'s token? The old link/token will stop working — only do this if the worker lost their phone or the link.')) return;
   const res = await api(`/workers/${id}/reset-token`, { method: 'POST' });
   showToken(res.device_token);
 }
